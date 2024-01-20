@@ -7,7 +7,9 @@ export interface D3Node extends SimulationNodeDatum {
 }
 
 export interface D3Edge extends SimulationLinkDatum<D3Node> {
+  id: string;
   value: string | number;
+  linkNum?: number;
 }
 
 export type GraphData = {
@@ -15,5 +17,12 @@ export type GraphData = {
   links: D3Edge[];
 };
 
+export type GraphSelection = {
+  type: string;
+  id: string;
+  name: string;
+};
+
 export const RADIUS = 30;
-export const NODE_ATTRACT_STRENGTH = -4000;
+export const NODE_ATTRACT_STRENGTH = -110;
+export const MIN_LINK_LEN = 300;

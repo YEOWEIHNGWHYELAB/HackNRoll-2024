@@ -9,28 +9,28 @@ import { Outlet } from "react-router-dom";
 import LoadingOverlayResource from "../Contexts/LoadingOverlayResource";
 
 function BaseLayout() {
-    const [mobileOpen, setMobileOpen] = React.useState(false);
+  const [mobileOpen, setMobileOpen] = React.useState(false);
 
-    return (
-        <Box sx={{ display: "flex" }}>
-            <AppHeader mobileOpen={mobileOpen} setMobileOpen={setMobileOpen} />
-            <SideMenu mobileOpen={mobileOpen} setMobileOpen={setMobileOpen} />
+  return (
+    <Box sx={{ display: "flex" }}>
+      <AppHeader mobileOpen={mobileOpen} setMobileOpen={setMobileOpen} />
+      <SideMenu mobileOpen={mobileOpen} setMobileOpen={setMobileOpen} />
 
-            <LoadingOverlayResource>
-                <Box
-                    sx={{
-                        flexGrow: 1,
-                        padding: (theme) => theme.spacing(3),
-                    }}
-                >
-                    <Toolbar />
-                    <Box>
-                        <Outlet />
-                    </Box>
-                </Box>
-            </LoadingOverlayResource>
+      <LoadingOverlayResource>
+        <Box
+          sx={{
+            flexGrow: 1,
+            padding: (theme) => theme.spacing(3),
+          }}
+        >
+          <Toolbar />
+          <Box sx={{ height: "100%", width: "100%" }}>
+            <Outlet />
+          </Box>
         </Box>
-    );
+      </LoadingOverlayResource>
+    </Box>
+  );
 }
 
 export default BaseLayout;

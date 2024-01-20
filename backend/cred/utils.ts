@@ -31,7 +31,11 @@ const knownURLs: string[] = [
  * 
  * The ordering of authentication matters! You should order by specific authentication to general authentication (email)
  */
-const authRelationTable = {
+type AuthRelationTable = {
+    [key: string]: string[];
+};
+
+const authRelationTable: AuthRelationTable = {
     "leetcode": ["github", "email"],
     "reddit": ["apple", "email"],
     "github": ["email"],
@@ -40,13 +44,17 @@ const authRelationTable = {
     "discord": ["email"],
     "hackerrank": ["linkedin", "github", "email"],
     "amazon": ["email"],
-    "linkedin": ["email"],
+    "linkedin": ["email"]
 };
 
 /**
  * Email domain name lookup
  */
-const emailRelationTable = {
+type EmailRelationTable = {
+    [key: string]: string;
+};
+
+const emailRelationTable: EmailRelationTable = {
     "u.nus.edu": "nus",
     "live.com": "live",
     "hotmail.com": "live",
@@ -129,9 +137,93 @@ function isPasswordSimilar(newPassword: string, oldPassword: string, similarityT
  * Build the relationship between nodes from the csv file
  */
 async function buildNodeRelations(csvRow: any, n4jDriver: Driver, username: string) {
+    const domainName = getDomainName(csvRow.url);
+
+    if (domainName === null || isIPAddress(domainName) || domainName.length <= 1) {
+        return;
+    }
+
     const session = n4jDriver.session({ database: process.env.NEO4J_PW_MANAGER_DB });
 
-    
+    try {
+        const result = await session.run(`
+            MATCH (n:${domainName})
+            WHERE n.created_by = "${username}" 
+                AND (n.email = "${csvRow.username}" OR n.username = "${csvRow.username}")
+            RETURN n;
+        `);
+
+        const currentNode = result.records[0].get('n').elementId;
+
+        // console.log("Source: " + domainName + ", " + result.records[0].get('n').elementId);
+
+        // Check for relavant relations
+        if (authRelationTable[domainName] !== undefined) {
+            let authRelationTarget;
+
+            for (let i = 0; i < authRelationTable[domainName].length; i++) {
+                authRelationTarget = authRelationTable[domainName][i];
+
+                // console.log("Target: " + authRelationTarget);
+
+                if (authRelationTarget === "email") {
+                    break;
+                }
+
+                const authResult = await session.run(`
+                    MATCH (n:${authRelationTarget})
+                    WHERE n.created_by = "${username}"
+                        AND (n.email = "${csvRow.username}" OR n.username = "${csvRow.username}")
+                    RETURN n;
+                `);
+
+                const isEmailProperty = isEmail(csvRow.username);
+                const propertyRef = isEmailProperty ? "email" : "username";
+
+                if (authResult.records.length > 0) {
+                    const authNode = authResult.records[0].get('n').elementId;
+
+                    await session.run(`
+                        MATCH (n1), (n2)
+                        WHERE elementId(n1) = "${currentNode}" AND elementId(n2) = "${authNode}"
+                        CREATE (n1)-[r:${authRelationTarget}_Relation]->(n2)
+                        SET r.relation_properties = [$propertyRef]
+                    `, { propertyRef });
+
+                    return;
+                }
+            }
+
+            if (authRelationTarget === "email" && isEmail(csvRow.username)) {
+                const emailDomainTarget = emailRelationTable[csvRow.username.split('@')[1]];
+
+                const authResultEmail = await session.run(`
+                    MATCH (n:${emailDomainTarget})
+                    WHERE n.created_by = "${username}"
+                        AND n.email = "${csvRow.username}"
+                    RETURN n;
+                `);
+
+                if (authResultEmail.records.length > 0) {
+                    const authNode = authResultEmail.records[0].get('n').elementId;
+
+                    await session.run(`
+                        MATCH (n1), (n2)
+                        WHERE elementId(n1) = "${currentNode}" AND elementId(n2) = "${authNode}"
+                        CREATE (n1)-[r:${emailDomainTarget}_Relation]->(n2)
+                        SET r.relation_properties = ["email"]
+                    `);
+
+                    return;
+                }
+            }
+        }
+    } catch (error) {
+        if (error instanceof Error)
+            console.error(`Error: ${error.message}`);
+    } finally {
+        await session.close();
+    }
 }
 
 /**
@@ -169,13 +261,12 @@ async function readCredNUpdate(csvRow: any, getPool: any, n4jDriver: Driver, use
             if (result.records[0].get('n').properties.password !== csvRow.password) {
                 console.log(`Updating password for ${csvRow.url}, ${csvRow.username}`);
 
-                await getPool().query(
-                    `
+                await getPool().query(`
                     INSERT INTO PasswordHistory (username, element_id, password, time_changed)
                     VALUES ($1, $2, $3, CURRENT_TIMESTAMP)`,
                     [username, existingElementID, csvRow.password]
                 );
-                
+
                 await session.run(`
                     MATCH (n)
                     WHERE elementId(n) = "${existingElementID}"
@@ -183,7 +274,8 @@ async function readCredNUpdate(csvRow: any, getPool: any, n4jDriver: Driver, use
                     RETURN n
                 `);
             }
-        } else {``
+        } else {
+            ``
             // Create new node
             let currNewNode;
 
@@ -227,5 +319,6 @@ async function readCredNUpdate(csvRow: any, getPool: any, n4jDriver: Driver, use
 export default {
     getDomainName,
     isPasswordSimilar,
-    readCredNUpdate
+    readCredNUpdate,
+    buildNodeRelations
 };

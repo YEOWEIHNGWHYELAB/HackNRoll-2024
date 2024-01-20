@@ -8,6 +8,22 @@ import pwdUtils from './utils';
 import { getPool } from '../auth/pool';
 import { D3Edge, D3Node, N4JEdge, N4JNode } from './types';
 
+async function createRelationFromCSVRows(filePath: string, decoded: string | jwt.JwtPayload, res: Response) {
+    console.log("Starting Relation Parsing Here!");
+    
+    fs.createReadStream(filePath)
+        .pipe(csvParser())
+        .on('data', (row) => {
+            pwdUtils.buildNodeRelations(row, n4jDriver, (decoded as jwt.JwtPayload).username);
+        })
+        .on('end', () => {
+            // Delete the file after reading
+            fs.unlinkSync(filePath);
+            res.json({ message: 'Credential uploaded successfully' });
+        }
+    );
+}
+
 async function uploadCSV(req: Request, res: Response) {
     const authHeader = req.headers.authorization as string;
     const token = checkAuthHeader(authHeader, res);
@@ -26,6 +42,7 @@ async function uploadCSV(req: Request, res: Response) {
 
             const result = await session.run(`
                 MATCH (n)
+                WHERE created_by(n) = "${(decoded as jwt.JwtPayload).username}"
                 RETURN count(n) AS numberOfNodes;
             `);
 
@@ -43,14 +60,13 @@ async function uploadCSV(req: Request, res: Response) {
                     }
                 })
                 .on('end', () => {
-                    // Cleanup: remove the uploaded file after parsing
-                    fs.unlinkSync(filePath);
-
-                    if (result.records[0].get('numberOfNodes').low > 1) {
-                        
+                    if (result.records[0].get('numberOfNodes').low <= 1) {
+                        createRelationFromCSVRows(filePath, decoded, res);
+                    } else {
+                        // Delete the file after reading
+                        fs.unlinkSync(filePath);
+                        res.json({ message: 'Credential uploaded successfully' });
                     }
-
-                    res.json({ message: 'Credential uploaded successfully' });
                 });
         } catch (err) {
             console.log(err);

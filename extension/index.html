@@ -1,0 +1,38 @@
+<!doctype html>
+<html>
+
+<head>
+	<style>
+		html,
+		body {
+			height: 200px;
+			width: 800px;
+		}
+	</style>
+</head>
+
+<body>
+	<h1>Password Filler</h1>
+	<p>
+		Auth Token:
+		<br/>
+		<input id="apitok" type="text">
+        <button id="btnSaveApiTok">Save</button>
+        <button id="btnLoadApiTok">Load</button>
+	</p>
+	<p>	
+		Email/Username:
+		<br/>
+		<input id="emailusr" type="text">
+	</p>
+	<p>
+		Password:
+		<br/>
+		<input id="pwd" type="password">
+	</p>
+	<button id='fillForm'>Inject</button>
+	<button id='storeForm'>Store</button>
+	<script src='action.js'></script>
+</body>
+
+</html>

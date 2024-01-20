@@ -1,0 +1,24 @@
+{
+  "name": "Password Manager Autofill",
+  "description": "Populate login/register forms with data from your password manager",
+  "version": "1.0",
+  "manifest_version": 3,
+  "background": {
+    "service_worker": "background.js"
+  },
+
+  "action": {
+    "default_title": "PWD Autofill",
+    "default_popup": "index.html"
+  },
+
+  "commands": {
+    "autofill-pw-man": {
+      "suggested_key": "Ctrl+Shift+U",
+      "description": "Autofill login details"
+    }
+  },
+
+  "permissions": ["tabs", "storage", "activeTab", "scripting", "webRequest"],
+  "host_permissions": ["http://*/*", "https://*/*"]
+}

@@ -12,8 +12,9 @@ import ListItemText from "@mui/material/ListItemText";
 import ExpandLess from "@mui/icons-material/ExpandLess";
 import ExpandMore from "@mui/icons-material/ExpandMore";
 import Collapse from "@mui/material/Collapse";
-import InfoIcon from "@mui/icons-material/Info";
 import SearchIcon from "@mui/icons-material/Search";
+import TimelineIcon from '@mui/icons-material/Timeline';
+import SpeedIcon from '@mui/icons-material/Speed';
 
 import { Box } from "@mui/system";
 import { GlobalStyles, useTheme } from "@mui/material";
@@ -24,14 +25,14 @@ const listItems = [
   {
     key: "lookup",
     name: "Dashboard",
-    icon: <InfoIcon />,
+    icon: <SpeedIcon />,
     children: [{ name: "Lookup", icon: <SearchIcon />, to: "/lookup" }],
   },
   {
     key: "graphView",
-    name: "Graph View",
-    icon: <InfoIcon />,
-    children: [{ name: "View", icon: <SearchIcon />, to: "/graph-view" }],
+    name: "Graph",
+    icon: <TimelineIcon />,
+    children: [{ name: "Graph View", icon: <SearchIcon />, to: "/graph-view" }],
   },
 ];
 

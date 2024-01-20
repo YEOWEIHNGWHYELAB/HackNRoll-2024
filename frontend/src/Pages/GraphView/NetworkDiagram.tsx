@@ -24,6 +24,8 @@ export const NetworkDiagram = ({
   let links: D3Edge[] = data.links.map((d) => ({ ...d }));
   let nodes: D3Node[] = data.nodes.map((d) => ({ ...d }));
 
+  nodeFilter = nodeFilter.toLowerCase().trim();
+
   // filter node through string properties
   nodes = nodes.filter((n) => {
     if (

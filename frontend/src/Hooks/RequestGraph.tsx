@@ -102,6 +102,35 @@ export default function RequestGraph() {
     /**
      * Create a new relation between 2 nodes
      */
+    const createCredRelation = useCallback(async (credRelation : any) => {
+        setLoading(true);
+
+        const res = await getUsername();
+        credRelation["created_by"] = res?.data?.username;
+
+        axios.post("/cred/relation", credRelation, setHeaderToken())
+            .then((res) => {
+                enqueueSnackbar("Credential relation added successfully!");
+                setLoading(false);
+                window.location.reload();
+            })
+            .catch(handleRequestResourceError);
+    }, [setLoading, getUsername, handleRequestResourceError, enqueueSnackbar]);
+
+    /**
+     * Delete a relation between 2 nodes
+     */
+    const deleteCredRelation = useCallback(async (credRelation : any) => {
+        setLoading(true);
+
+        axios.post("/cred/deleterelation", credRelation, setHeaderToken())
+            .then((res) => {
+                enqueueSnackbar("Credential relation deleted successfully!");
+                setLoading(false);
+                window.location.reload();
+            })
+            .catch(handleRequestResourceError);
+    }, [setLoading, handleRequestResourceError, enqueueSnackbar]);
 
     return {
         res,
@@ -109,6 +138,8 @@ export default function RequestGraph() {
         createCred,
         updateCred,
         deleteCred,
+        createCredRelation,
+        deleteCredRelation,
         error
     }
 }

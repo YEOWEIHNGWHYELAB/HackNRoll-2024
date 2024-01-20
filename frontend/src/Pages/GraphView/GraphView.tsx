@@ -2,10 +2,8 @@ import React, { useEffect, useState } from "react";
 import {
   Button,
   Dialog,
-  DialogActions,
   DialogContent,
   DialogTitle,
-  IconButton,
   TextField,
 } from "@mui/material";
 
@@ -17,7 +15,15 @@ interface FormData {
   [key: string]: string;
 }
 
+const nodeInfoStyle = {
+  margin: '10px',
+  padding: '10px',
+  border: '1px solid #ccc',
+  borderRadius: '5px',
+};
+
 const GraphView: React.FC = () => {
+  const [selectedKeys, setSelectedKeys] = useState<string[]>([]);
   const [nodeFilter, setNodeFilter] = useState("");
   const [open, setOpen] = useState(false);
   const [isSelectingSrc, setIsSelectingSrc] = useState(false);
@@ -31,8 +37,19 @@ const GraphView: React.FC = () => {
   });
   const [newFieldName, setNewFieldName] = useState("");
 
-  const { res, loadFullGraph, createCred, updateCred, deleteCred } =
+  const { res, loadFullGraph, createCred, updateCred, deleteCred, createCredRelation, deleteCredRelation } =
     RequestGraph();
+  
+  const handleCheckboxChange = (key: string) => {
+    // Check if the key is already selected
+    if (selectedKeys.includes(key)) {
+      // If selected, remove it from the array
+      setSelectedKeys(selectedKeys.filter(selectedKey => selectedKey !== key));
+    } else {
+      // If not selected, add it to the array
+      setSelectedKeys([...selectedKeys, key]);
+    }
+  };
 
   const handleClickOpen = () => {
     setOpen(true);
@@ -72,7 +89,7 @@ const GraphView: React.FC = () => {
   const handleAddField = (fieldName: string) => {
     if (fieldName === "" || fieldName === undefined) {
       alert("Field name cannot be empty!");
-    } else if (fieldName === "created_by" || fieldName === "password_confirm") {
+    } else if (fieldName === "label" || fieldName === "created_by" || fieldName === "password_confirm") {
       alert("Illegal field name!");
     } else {
       setFormData((prevData) => ({
@@ -143,7 +160,7 @@ const GraphView: React.FC = () => {
         });
       }
 
-      if (!isSelectingDest && !isSelectingSrc) {
+      if (!isSelectingDest && !isSelectingSrc && activeItem.type === "Node") {
         handleClickOpen();
       }
     }
@@ -159,6 +176,7 @@ const GraphView: React.FC = () => {
       if (isSelectingDest) {
         handleClickOpenRelation();
         setActiveItemDest(activeItem);
+        setSelectedKeys([]);
       }
 
       setIsSelectingSrc(false);
@@ -203,6 +221,17 @@ const GraphView: React.FC = () => {
           style={{ margin: "2px" }}
         >
           Create New Relation
+        </Button>
+
+        <Button
+          variant="outlined"
+          disabled={activeItem?.type !== "Relationship"}
+          style={{ margin: "2px", color: activeItem?.type !== "Relationship" ? "transparent" : "red", }}
+          onClick={() => {
+            deleteCredRelation({ elementId: activeItem?.id || "" });
+          }}
+        >
+          Delete Relation
         </Button>
       </div>
       <div>
@@ -357,23 +386,66 @@ const GraphView: React.FC = () => {
             </Button>
           </div>
 
-          {activeItemSrc !== undefined ? (
-            <div>
-              Selected Source Node: {activeItemSrc.id} Type:{" "}
-              {activeItemSrc.type} Name: {activeItemSrc.name}
+          {activeItemSrc && (
+            <div style={nodeInfoStyle}>
+              <strong>Selected Source Node:</strong> 
+              <br/>
+              <strong>Label: {activeItemSrc.name}</strong> 
+              <br/>
+              <strong>Element ID: {activeItemSrc.id} </strong>
+              <br/>
+              <br/>
+              <strong>Properties: </strong>
+              <>
+                {activeItemSrc.properties && Object.keys(activeItemSrc.properties).filter((curr) => curr !== "created_by").map((key) => (
+                  <div>
+                    <strong>{key}: </strong> {activeItemSrc.properties[key]}
+                  </div>
+                ))}
+              </>
             </div>
-          ) : (
-            ""
           )}
 
-          {activeItemDest !== undefined ? (
-            <div>
-              Selected Destination Node: {activeItemDest.id} Type:{" "}
-              {activeItemDest.type} Name: {activeItemDest.name}
+          {activeItemDest && (
+            <div style={nodeInfoStyle}>
+              <strong>Selected Destination Node:</strong> 
+              <br/>
+              <strong>Label: {activeItemDest.name}</strong> 
+              <br/>
+              <strong>Element ID: {activeItemDest.id} </strong>
+              <br/>
+              <br/>
+              <strong>Properties: </strong>
+              <>
+                {activeItemDest.properties && Object.keys(activeItemDest.properties).filter((curr) => curr !== "created_by").map((key) => (
+                  <div>
+                    <input
+                      type="checkbox"
+                      id={key}
+                      checked={selectedKeys.includes(key)}
+                      onChange={() => handleCheckboxChange(key)}
+                    />
+                    <strong>{key}: </strong> {activeItemDest.properties[key]}
+                  </div>
+                ))}
+              </>
             </div>
-          ) : (
-            ""
           )}
+
+          <Button variant="contained" color="primary" disabled={!(activeItemSrc && activeItemDest)} onClick={() => {
+            if (activeItemSrc && activeItemDest) {
+              createCredRelation({
+                src_node_id: activeItemSrc.id,
+                dest_node_id: activeItemDest.id,
+                relation_type: activeItemDest.name + "_Relation",
+                reference_properties: selectedKeys,
+              });
+            } else {
+              alert("Please select both source and destination nodes!");
+            }
+          }}>
+            Create Relation
+          </Button>
         </DialogContent>
       </Dialog>
 

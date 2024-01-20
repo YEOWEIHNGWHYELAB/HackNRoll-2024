@@ -114,7 +114,7 @@ export const drawNetworkSvg = (
     .data(nodes)
     .join("circle")
     .attr("r", RADIUS)
-    .attr("fill", (d) => color(d.group))
+    .attr("fill", (d) => color(d.name))
     .attr("data-id", (d) => d.id)
     .style("cursor", "pointer")
     .on("click", (e, d) => {

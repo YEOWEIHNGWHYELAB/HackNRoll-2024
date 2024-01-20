@@ -6,6 +6,8 @@ import {
   DialogTitle,
   TextField,
 } from "@mui/material";
+import ContentPasteIcon from '@mui/icons-material/ContentPaste';
+import clipboardCopy from 'clipboard-copy';
 
 import { NetworkDiagramMemo } from "./NetworkDiagram";
 import { GraphData, GraphSelection } from "./data";
@@ -241,6 +243,16 @@ const GraphView: React.FC = () => {
     }
   }, [res]);
 
+
+  const copyToClipboard = async (pwdStr: string) => {
+    try {
+      await clipboardCopy(pwdStr);
+      // console.log('Content copied to clipboard:', pwdStr);
+    } catch (error) {
+      console.error('Failed to copy content to clipboard:', error);
+    }
+  };
+
   return (
     <div style={{ width: "100%", height: "100%" }}>
       <div
@@ -307,6 +319,15 @@ const GraphView: React.FC = () => {
               onClick={() => handleAddField(newFieldName)}
             >
               New
+            </Button>
+
+            <Button
+              onClick={() => {
+                copyToClipboard(formData.password || "");
+              }}
+              disabled={formData.password === undefined}
+            >
+              <ContentPasteIcon/>
             </Button>
           </div>
 

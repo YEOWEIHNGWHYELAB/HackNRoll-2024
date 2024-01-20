@@ -448,8 +448,8 @@ async function clearBreached(req: Request, res: Response) {
                 const elementId = req.body.elementId as string;
                 await getPool().query(
                     `
-                UPDATE your_mother
-                SET active=0
+                UPDATE BreachedNodes
+                SET active=false, breached=false
                 WHERE element_id=$1
             `,
                     [elementId]
@@ -665,16 +665,13 @@ async function checkPassword(req: Request, res: Response) {
 
 async function checkBreached(elementId: string): Promise<boolean> {
     // TODO: REPLACE IWTH ACTUAL PG QUERY
-    return new Promise((res) => {
-        res(true);
-    });
-
     const pgRes = await getPool().query(
         `
         SELECT * 
-        FROM your_mother
+        FROM BreachedNodes
         WHERE element_id=$1
-        AND active=1
+            AND active=true 
+            AND breached=true
         `,
         [elementId]
     );

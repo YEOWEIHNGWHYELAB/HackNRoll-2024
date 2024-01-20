@@ -5,7 +5,7 @@
     "type": "module",
     "main": "index.ts",
     "scripts": {
-        "start": "tsx index.ts",
+        "start": "tsx --watch index.ts",
         "lint": "prettier --check . && eslint .",
         "format": "prettier --write ."
     },
@@ -19,10 +19,14 @@
         "cors": "^2.8.5",
         "dotenv": "^16.3.1",
         "express": "^4.18.2",
+        "express-list-endpoints": "^6.0.0",
+        "i": "^0.3.7",
         "jsonwebtoken": "^9.0.2",
         "koa": "^2.15.0",
         "koa-router": "^12.0.1",
+        "neo4j-driver": "^5.16.0",
         "nodemon": "^3.0.2",
+        "npm": "^10.2.5",
         "pg": "^8.11.3",
         "prettier": "^3.1.1",
         "save-dev": "^0.0.1-security",
@@ -32,6 +36,7 @@
     "devDependencies": {
         "@types/bcryptjs": "^2.4.6",
         "@types/cors": "^2.8.17",
+        "@types/express-list-endpoints": "^6.0.3",
         "@types/jsonwebtoken": "^9.0.5",
         "@types/node": "^20.10.7",
         "@types/pg": "^8.10.9",

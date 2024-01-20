@@ -102,8 +102,7 @@ async function addRelation(req: Request, res: Response) {
             const session = n4jDriver.session({ database: process.env.NEO4J_PW_MANAGER_DB });
 
             try {
-                await session.run(
-                    `
+                await session.run(`
                 MATCH (srcNode)
                 WHERE elementId(srcNode) = '${srcId}'
                 MATCH (destNode)
@@ -395,10 +394,49 @@ async function getFullGraph(req: Request, res: Response) {
     }
 }
 
+async function findCredential(req: Request, res: Response) {
+    const authHeader = req.headers.authorization as string;
+    const token = checkAuthHeader(authHeader, res);
+
+    if (token !== '') {
+        try {
+            const decoded = jwt.verify(token, process.env.JWT_SECRET, {
+                algorithms: ['HS256']
+            });
+
+            const session = n4jDriver.session({ database: process.env.NEO4J_PW_MANAGER_DB });
+
+            try {
+                const currLabel = req.body.label as string;
+
+                const result = await session.run(`
+                    MATCH (n:${currLabel})
+                    WHERE ${Object.entries(req.body)
+                        .filter(([key, value]) => key !== 'label' && value !== undefined)
+                        .map(([key, value]) => `n.${key} = "${value}"`)
+                        .join(' AND ')
+                        } 
+                        AND n.created_by = "${(decoded as jwt.JwtPayload).username}"
+                    RETURN n;
+                `);
+
+                res.json({ node: result.records[0].get('n') });
+            } catch (error) {
+                res.status(500).json({ error: 'Error finding credential', message: error });
+            } finally {
+                await session.close();
+            }
+        } catch (err) {
+            res.status(400).json('Not authenticated');
+        }
+    }
+}
+
 export default {
     addCred,
     addRelation,
     getFullGraph,
+    findCredential,
     updateCredNode,
     updateRelationProperties,
     deleteNode,

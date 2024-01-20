@@ -23,6 +23,11 @@ export function credRouter() {
         return res.status(200).json(graph);
     });
 
+    // Find credential
+    router.post('/getcred', async (req: Request, res: Response) => {
+        credController.findCredential(req, res);
+    });
+
     // Update credential node properties
     router.patch('/add', (req: Request, res: Response) => {
         credController.updateCredNode(req, res);

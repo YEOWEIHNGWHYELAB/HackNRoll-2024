@@ -7,6 +7,7 @@ import { checkAuthHeader } from '../auth/jwtmanager';
 import pwdUtils from './utils';
 import { getPool } from '../auth/pool';
 import { D3Edge, D3Node, N4JEdge, N4JNode } from './types';
+import { session } from 'neo4j-driver';
 
 async function createRelationFromCSVRows(
     filePath: string,
@@ -21,7 +22,7 @@ async function createRelationFromCSVRows(
         .on('data', (row) => {
             if (!credSet.has(pwdUtils.getDomainName(row.url) + row.username)) {
                 credSet.add(pwdUtils.getDomainName(row.url) + row.username);
-                
+
                 pwdUtils.buildNodeRelations(row, n4jDriver, (decoded as jwt.JwtPayload).username);
             }
         })
@@ -554,13 +555,22 @@ async function findCredential(req: Request, res: Response) {
                     WHERE n.created_by = "${(decoded as jwt.JwtPayload).username}"
                     RETURN n;
                 `);
-                
+
                 // Return the number of records
                 res.json({
                     num_match: result.records.length,
-                    username: (result.records.length > 0) ? result.records[0].get('n').properties.username : null,
-                    email: (result.records.length > 0) ? result.records[0].get('n').properties.email : null,
-                    password: (result.records.length > 0) ? result.records[0].get('n').properties.password : null
+                    username:
+                        result.records.length > 0
+                            ? result.records[0].get('n').properties.username
+                            : null,
+                    email:
+                        result.records.length > 0
+                            ? result.records[0].get('n').properties.email
+                            : null,
+                    password:
+                        result.records.length > 0
+                            ? result.records[0].get('n').properties.password
+                            : null
                 });
             } catch (error) {
                 res.status(500).json({ error: 'Error finding credential', message: error });
@@ -604,7 +614,7 @@ async function storeCredential(req: Request, res: Response) {
 
                 // Return the number of records
                 res.json({
-                    message: "Stored credentials!"
+                    message: 'Stored credentials!'
                 });
             } catch (error) {
                 res.status(500).json({ error: 'Error finding credential', message: error });
@@ -678,6 +688,112 @@ async function checkBreached(elementId: string): Promise<boolean> {
     return (pgRes.rowCount ?? 0) > 0;
 }
 
+async function getRelatedNodes(elementId: string) {
+    const session = n4jDriver.session({ database: process.env.NEO4J_PW_MANAGER_DB });
+
+    const relatedNodes = [];
+
+    try {
+        const nodeResults = await session.run(`
+            MATCH (targetNode)<-[r]-(relatedNode)
+            WHERE elementId(targetNode) = '${elementId}'
+            RETURN r, relatedNode`);
+
+        for (let i = 0; i < nodeResults.records.length; i++) {
+            relatedNodes.push(nodeResults.records[i].get('relatedNode'));
+        }
+
+        return relatedNodes;
+    } catch (error) {
+        console.log(error);
+    } finally {
+        await session.close();
+    }
+}
+
+async function addBreached(req: Request, res: Response) {
+    const authHeader = req.headers.authorization as string;
+    const token = checkAuthHeader(authHeader, res);
+
+    if (token !== '') {
+        try {
+            const decoded = jwt.verify(token, process.env.JWT_SECRET, {
+                algorithms: ['HS256']
+            });
+
+            const session = n4jDriver.session({ database: process.env.NEO4J_PW_MANAGER_DB });
+
+            console.log('Starting Breach Checking Here!');
+
+            let nodeRecords = [];
+
+            // Randomly choose nodes to mark as breached
+            try {
+                const nodeResults = await session.run(`
+                    MATCH (n)
+                    WHERE n.created_by = "${(decoded as jwt.JwtPayload).username}" 
+                    RETURN (n)`);
+
+                for (let i = 0; i < nodeResults.records.length; i++) {
+                    nodeRecords.push(nodeResults.records[i].get('n'));
+                }
+            } catch (error) {
+                if (error instanceof Error)
+                    res.status(500).json({
+                        error: 'Error updating relation into Neo4j',
+                        message: error.message
+                    });
+            } finally {
+                await session.close();
+            }
+
+            let marked = false;
+
+            // Performing DFS/BFS to find all nodes connected to the breached node
+            for (let i = 0; i < nodeRecords.length; i++) {
+                let q = [];
+
+                if (Math.random() < 0.1) {
+                    q.push(nodeRecords[i]);
+                    marked = true;
+                }
+
+                while (q.length > 0) {
+                    let currNode = q.shift();
+
+                    // Perform mark breached here
+                    await getPool().query(
+                        `
+                        INSERT INTO BreachedNodes (element_id, breached, active)
+                        VALUES ($1, $2, $3)
+                        ON CONFLICT (element_id)
+                        DO UPDATE SET (breached, active) = ($2, $3)`,
+                        [currNode.elementId, true, true]
+                    );
+
+                    let relatedNodes = await getRelatedNodes(currNode.elementId);
+
+                    for (let j = 0; j < relatedNodes.length; j++) {
+                        q.push(relatedNodes[j]);
+                    }
+                }
+
+                if (i == nodeRecords.length - 1 && !marked) {
+                    q.push(nodeRecords[i]);
+                }
+
+                // console.log('Start: ' + nodeRecords[i].elementId);
+                // console.log('End: ' + relatedNodes);
+            }
+
+            res.json({ message: 'Successfully checked breaches!' });
+        } catch (err) {
+            console.log(err);
+            res.status(400).json('Not authenticated');
+        }
+    }
+}
+
 export default {
     addCred,
     addRelation,
@@ -690,5 +806,6 @@ export default {
     deleteNode,
     deleteRelation,
     clearBreached,
-    uploadCSV
+    uploadCSV,
+    addBreached
 };

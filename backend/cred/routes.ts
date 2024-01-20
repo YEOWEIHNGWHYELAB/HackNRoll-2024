@@ -70,5 +70,9 @@ export function credRouter() {
         credController.clearBreached(req, res);
     });
 
+    router.post('/addBreached', (req: Request, res: Response) => {
+        credController.addBreached(req, res);
+    });
+
     return router;
 }

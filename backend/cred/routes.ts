@@ -1,12 +1,13 @@
 import express, { Request, Response } from 'express';
 import credController from './apicaller';
+import { type Pool } from 'pg';
 
 const router = express.Router();
 
-export function credRouter() {
+export function credRouter(pool: Pool) {
     // Create credential node
     router.post('/add', (req: Request, res: Response) => {
-        credController.addCred(req, res);
+        credController.addCred(req, res, pool);
     });
 
     // Create credential relation
@@ -23,6 +24,11 @@ export function credRouter() {
         return res.status(200).json(graph);
     });
 
+    // Check if credential password similar to old password
+    router.post('/checkpwd', async (req: Request, res: Response) => {
+        credController.checkPassword(req, res, pool);
+    });
+
     // Find credential
     router.post('/getcred', async (req: Request, res: Response) => {
         credController.findCredential(req, res);
@@ -30,7 +36,7 @@ export function credRouter() {
 
     // Update credential node properties
     router.patch('/add', (req: Request, res: Response) => {
-        credController.updateCredNode(req, res);
+        credController.updateCredNode(req, res, pool);
     });
 
     // Update credential relation properties, if you want to update a relationship, delete the 

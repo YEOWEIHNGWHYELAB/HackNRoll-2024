@@ -1,7 +1,9 @@
 import { Request, Response } from 'express';
 import jwt from 'jsonwebtoken';
+import { type Pool } from 'pg';
 import { n4jDriver } from '.';
 import { checkAuthHeader } from '../auth/jwtmanager';
+import pwdUtils from './utils'; // Add the missing import statement
 
 type N4JNode = {
     elementId: string;
@@ -39,13 +41,13 @@ type D3Edge = {
 /**
  * Create credential node
  */
-async function addCred(req: Request, res: Response) {
+async function addCred(req: Request, res: Response, pool: Pool) {
     const authHeader = req.headers.authorization as string;
     const token = checkAuthHeader(authHeader, res);
 
     if (token !== '') {
         try {
-            jwt.verify(token, process.env.JWT_SECRET, {
+            const decoded = jwt.verify(token, process.env.JWT_SECRET, {
                 algorithms: ['HS256']
             });
 
@@ -65,6 +67,12 @@ async function addCred(req: Request, res: Response) {
                 );
 
                 const createdNode = result.records[0].get('n');
+
+                if (newNode.password) {
+                    await pool.query(`
+                        INSERT INTO PasswordHistory (username, element_id, password, time_changed)
+                        VALUES ($1, $2, $3, CURRENT_TIMESTAMP)`, [(decoded as jwt.JwtPayload).username, createdNode.elementId, newNode.password]);
+                }
 
                 res.json({ message: 'Data inserted successfully', node: createdNode.properties });
             } catch (error) {
@@ -134,13 +142,13 @@ async function addRelation(req: Request, res: Response) {
 /**
  * Update credential node properties, you can specify a variable number of properties to update
  */
-async function updateCredNode(req: Request, res: Response) {
+async function updateCredNode(req: Request, res: Response, pool: Pool) {
     const authHeader = req.headers.authorization as string;
     const token = checkAuthHeader(authHeader, res);
 
     if (token !== '') {
         try {
-            jwt.verify(token, process.env.JWT_SECRET, {
+            const decoded = jwt.verify(token, process.env.JWT_SECRET, {
                 algorithms: ['HS256']
             });
 
@@ -150,7 +158,7 @@ async function updateCredNode(req: Request, res: Response) {
 
             const paramArr: string[] = Object.entries(updateNodeData)
                 .filter(
-                    ([key, value]) => key !== 'elementId' && key !== 'label' && value !== undefined
+                    ([key, value]) => key !== 'password' && key !== 'elementId' && key !== 'label' && value !== undefined
                 )
                 .map(([key, value]) => `n.${key} = "${value}"`);
             const paramStr: string = paramArr.join(', ');
@@ -186,6 +194,33 @@ async function updateCredNode(req: Request, res: Response) {
                 );
 
                 const createdNode = result.records[0].get('n');
+
+                // Check if the password is updated
+                const old_pwd_result = await pool.query(`
+                    SELECT password
+                    FROM passwordhistory
+                    WHERE element_id = '${updateID}'
+                    ORDER BY time_changed DESC
+                    LIMIT 1
+                `);
+                
+                const oldPwd = old_pwd_result.rows[0].password;
+
+                if (oldPwd !== updateNodeData.password) {
+                    await pool.query(`
+                        INSERT INTO PasswordHistory (username, element_id, password, time_changed)
+                        VALUES ($1, $2, $3, CURRENT_TIMESTAMP)`
+                        , [(decoded as jwt.JwtPayload).username, updateID, updateNodeData.password]
+                    );
+
+                    await session.run(
+                        `
+                        MATCH (n)
+                        WHERE elementId(n) = "${updateID}"
+                        SET n.password = '${updateNodeData.password}'
+                        RETURN n
+                    `);
+                }
 
                 res.json({ message: 'Data updated successfully', node: createdNode.properties });
             } catch (error) {
@@ -412,7 +447,7 @@ async function findCredential(req: Request, res: Response) {
                 const result = await session.run(`
                     MATCH (n:${currLabel})
                     WHERE ${Object.entries(req.body)
-                        .filter(([key, value]) => key !== 'label' && value !== undefined)
+                        .filter(([key, value]) => key !== 'label' && key !== 'password' && value !== undefined)
                         .map(([key, value]) => `n.${key} = "${value}"`)
                         .join(' AND ')
                         } 
@@ -420,12 +455,47 @@ async function findCredential(req: Request, res: Response) {
                     RETURN n;
                 `);
 
-                res.json({ node: result.records[0].get('n') });
+                res.json({ message: (result.records.length > 0) ? 'Found credential' : 'No credential found' });
             } catch (error) {
                 res.status(500).json({ error: 'Error finding credential', message: error });
             } finally {
                 await session.close();
             }
+        } catch (err) {
+            res.status(400).json('Not authenticated');
+        }
+    } else {
+        res.status(400).json('Not authenticated');
+    }
+}
+
+async function checkPassword(req: Request, res: Response, pool: Pool) {
+    const authHeader = req.headers.authorization as string;
+    const token = checkAuthHeader(authHeader, res);
+
+    if (token !== '') {
+        try {
+            const decoded = jwt.verify(token, process.env.JWT_SECRET, {
+                algorithms: ['HS256']
+            });
+
+            const updateNodeData = req.body;
+            const updateID = updateNodeData.elementId;
+
+            // Check if the password is updated
+            const oldPwdHistoryArr = await pool.query(`
+                SELECT password
+                FROM passwordhistory
+                WHERE element_id = '${updateID}' AND username = '${(decoded as jwt.JwtPayload).username}'
+            `);
+
+            for (let i = 0; i < oldPwdHistoryArr.rows.length; i++) {
+                if (pwdUtils.isPasswordSimilar(updateNodeData.password, oldPwdHistoryArr.rows[i].password, 3)) {
+                    return res.json({ is_similar: true, message: 'Password is too similar to the old password' });
+                }
+            }
+
+            res.json({ is_similar: false, message: 'Password is not similar to the old password' });
         } catch (err) {
             res.status(400).json('Not authenticated');
         }
@@ -436,6 +506,7 @@ export default {
     addCred,
     addRelation,
     getFullGraph,
+    checkPassword,
     findCredential,
     updateCredNode,
     updateRelationProperties,

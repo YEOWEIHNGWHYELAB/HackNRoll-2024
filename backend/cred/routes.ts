@@ -28,6 +28,12 @@ export function credRouter() {
         credController.updateCredNode(req, res);
     });
 
+    // Update credential relation properties, if you want to update a relationship, delete the 
+    // existing one and create a new one
+    router.patch('/relation', (req: Request, res: Response) => {
+        credController.updateRelationProperties(req, res);
+    });
+
     // Delete credential node property
     router.post('/deleteproperty', (req: Request, res: Response) => {
         credController.deleteNodeProperties(req, res);
@@ -36,6 +42,11 @@ export function credRouter() {
     // Delete credential node
     router.post('/delete', (req: Request, res: Response) => {
         credController.deleteNode(req, res);
+    });
+
+    // Delete relation
+    router.post('/deleterelation', (req: Request, res: Response) => {
+        credController.deleteRelation(req, res);
     });
 
     return router;

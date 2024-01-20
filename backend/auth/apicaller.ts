@@ -6,10 +6,10 @@ import { generateToken } from './jwtmanager';
 
 // Register user
 async function register(req: Request, res: Response, pool: Pool) {
-    const { username, password } = req.body;
+    const { username, email, password } = req.body;
 
-    if (!username || !password) {
-        return res.json('Username and password are required');
+    if (!username || !email || !password) {
+        return res.status(400).json('Username and password are required');
     }
 
     try {
@@ -26,15 +26,15 @@ async function register(req: Request, res: Response, pool: Pool) {
 
         // Insert new user
         const insertResult = await pool.query(
-            'INSERT INTO users (username, password) VALUES ($1, $2) RETURNING *',
-            [username, hashedPassword]
+            'INSERT INTO users (username, email, password) VALUES ($1, $2, $3) RETURNING *',
+            [username, email, hashedPassword]
         );
         const newUser = insertResult.rows[0];
 
         // Sign JWT token
         generateToken(newUser.username, res, true);
     } catch (err) {
-        // console.error(err);
+        console.error(err);
         res.status(400).json('Registration Error');
     }
 }
@@ -44,7 +44,7 @@ async function login(req: Request, res: Response, pool: Pool) {
     const { username, password } = req.body;
 
     if (!username || !password) {
-        return res.json('Username and password are required');
+        return res.status(400).json('Username and password are required');
     }
 
     try {

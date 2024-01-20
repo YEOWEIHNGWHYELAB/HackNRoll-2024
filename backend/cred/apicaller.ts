@@ -28,6 +28,7 @@ type D3Node = {
 };
 
 type D3Edge = {
+    id: string;
     source: string;
     target: string;
     value: string | number;
@@ -40,24 +41,25 @@ async function addCred(req: Request, res: Response) {
     const authHeader = req.headers.authorization as string;
     const token = checkAuthHeader(authHeader, res);
 
-    if (token !== "") {
+    if (token !== '') {
         try {
             jwt.verify(token, process.env.JWT_SECRET, {
-                algorithms: ["HS256"],
+                algorithms: ['HS256']
             });
-            
+
             const newNode = req.body;
-            const label = newNode.label;   
+            const label = newNode.label;
             const session = n4jDriver.session();
 
             try {
                 const result = await session.run(
                     `
                     CREATE (n:${label} {${Object.entries(newNode)
-                        .filter(([key, value]) => key !== "label" && value !== undefined)
+                        .filter(([key, value]) => key !== 'label' && value !== undefined)
                         .map(([key]) => `${key}: $${key}`)}})
                         RETURN n
-                    `, newNode
+                    `,
+                    newNode
                 );
 
                 const createdNode = result.records[0].get('n');
@@ -73,7 +75,7 @@ async function addCred(req: Request, res: Response) {
                 await session.close();
             }
         } catch (err) {
-            res.status(400).json("Not authenticated");
+            res.status(400).json('Not authenticated');
         }
     }
 }
@@ -85,10 +87,10 @@ async function addRelation(req: Request, res: Response) {
     const authHeader = req.headers.authorization as string;
     const token = checkAuthHeader(authHeader, res);
 
-    if (token !== "") {
+    if (token !== '') {
         try {
             jwt.verify(token, process.env.JWT_SECRET, {
-                algorithms: ["HS256"],
+                algorithms: ['HS256']
             });
 
             const srcId = req.body.src_node_id;
@@ -99,14 +101,16 @@ async function addRelation(req: Request, res: Response) {
 
             try {
                 await session.run(
-                `
+                    `
                 MATCH (srcNode)
                 WHERE elementId(srcNode) = '${srcId}'
                 MATCH (destNode)
                 WHERE elementId(destNode) = '${destId}'
                 CREATE (srcNode)-[r:${relationType}]->(destNode)
                 SET r.relation_properties = $referenceProperties
-                `, {referenceProperties});
+                `,
+                    { referenceProperties }
+                );
 
                 res.json({ message: 'Relation added successfully' });
             } catch (error) {
@@ -119,7 +123,7 @@ async function addRelation(req: Request, res: Response) {
                 await session.close();
             }
         } catch (err) {
-            res.status(400).json("Not authenticated");
+            res.status(400).json('Not authenticated');
         }
     }
 }
@@ -131,17 +135,19 @@ async function updateCredNode(req: Request, res: Response) {
     const authHeader = req.headers.authorization as string;
     const token = checkAuthHeader(authHeader, res);
 
-    if (token !== "") {
+    if (token !== '') {
         try {
             jwt.verify(token, process.env.JWT_SECRET, {
-                algorithms: ["HS256"],
+                algorithms: ['HS256']
             });
 
             const updateNodeData = req.body;
             const updateID = updateNodeData.elementId;
             const session = n4jDriver.session();
 
-            const paramArr: string[] = Object.entries(updateNodeData).filter(([key, value]) => key !== "elementId" && value !== undefined).map(([key, value]) => `n.${key} = "${value}"`);
+            const paramArr: string[] = Object.entries(updateNodeData)
+                .filter(([key, value]) => key !== 'elementId' && value !== undefined)
+                .map(([key, value]) => `n.${key} = "${value}"`);
             const paramStr: string = paramArr.join(', ');
 
             try {
@@ -151,7 +157,8 @@ async function updateCredNode(req: Request, res: Response) {
                     WHERE elementId(n) = "${updateID}"
                     SET ${paramStr}
                     RETURN n
-                    `, updateNodeData
+                    `,
+                    updateNodeData
                 );
 
                 const createdNode = result.records[0].get('n');
@@ -160,14 +167,59 @@ async function updateCredNode(req: Request, res: Response) {
             } catch (error) {
                 if (error instanceof Error)
                     res.status(500).json({
-                        error: 'Error updating data into Neo4j',
+                        error: 'Error updating credential properties into Neo4j',
                         message: error.message
                     });
             } finally {
                 await session.close();
             }
         } catch (err) {
-            res.status(400).json("Not authenticated");
+            res.status(400).json('Not authenticated');
+        }
+    }
+}
+
+/**
+ * Update a relation properties
+ */
+async function updateRelationProperties(req: Request, res: Response) {
+    const authHeader = req.headers.authorization as string;
+    const token = checkAuthHeader(authHeader, res);
+
+    if (token !== '') {
+        try {
+            jwt.verify(token, process.env.JWT_SECRET, {
+                algorithms: ['HS256']
+            });
+
+            const updateID = req.body.elementId;
+            const referenceProperties = req.body.reference_properties;
+
+            const session = n4jDriver.session();
+
+            try {
+                await session.run(
+                    `
+                    MATCH ()-[r]-()
+                    WHERE elementId(r) = "${updateID}"
+                    SET r.relation_properties = $referenceProperties
+                    `,
+                    { referenceProperties }
+                );
+
+                res.json({ message: 'Relation properties updated successfully' });
+            } catch (error) {
+                if (error instanceof Error)
+                    res.status(500).json({
+                        error: 'Error updating relation into Neo4j',
+                        message: error.message
+                    });
+            } finally {
+                await session.close();
+            }
+        } catch (err) {
+            console.error(err);
+            res.status(400).json('Not authenticated');
         }
     }
 }
@@ -179,10 +231,10 @@ async function deleteNodeProperties(req: Request, res: Response) {
     const authHeader = req.headers.authorization as string;
     const token = checkAuthHeader(authHeader, res);
 
-    if (token !== "") {
+    if (token !== '') {
         try {
             jwt.verify(token, process.env.JWT_SECRET, {
-                algorithms: ["HS256"],
+                algorithms: ['HS256']
             });
 
             const propertiesToDelete = req.body;
@@ -197,7 +249,7 @@ async function deleteNodeProperties(req: Request, res: Response) {
                     `
                 );
 
-                res.json({ message: 'Data deleted successfully' });
+                res.json({ message: 'Credential property deleted successfully' });
             } catch (error) {
                 if (error instanceof Error)
                     res.status(500).json({
@@ -208,9 +260,9 @@ async function deleteNodeProperties(req: Request, res: Response) {
                 await session.close();
             }
         } catch (err) {
-            res.status(400).json("Not authenticated");
+            res.status(400).json('Not authenticated');
         }
-    }  
+    }
 }
 
 /**
@@ -220,10 +272,10 @@ async function deleteNode(req: Request, res: Response) {
     const authHeader = req.headers.authorization as string;
     const token = checkAuthHeader(authHeader, res);
 
-    if (token !== "") {
+    if (token !== '') {
         try {
             jwt.verify(token, process.env.JWT_SECRET, {
-                algorithms: ["HS256"],
+                algorithms: ['HS256']
             });
 
             const nodeToDelete = req.body;
@@ -249,7 +301,49 @@ async function deleteNode(req: Request, res: Response) {
                 await session.close();
             }
         } catch (err) {
-            res.status(400).json("Not authenticated");
+            res.status(400).json('Not authenticated');
+        }
+    }
+}
+
+/**
+ * Delete a selected relation by its elementId
+ */
+async function deleteRelation(req: Request, res: Response) {
+    const authHeader = req.headers.authorization as string;
+    const token = checkAuthHeader(authHeader, res);
+
+    if (token !== '') {
+        try {
+            jwt.verify(token, process.env.JWT_SECRET, {
+                algorithms: ['HS256']
+            });
+
+            const deletionId = req.body.elementId;
+
+            const session = n4jDriver.session();
+
+            try {
+                await session.run(
+                    `
+                    MATCH ()-[r]-()
+                    WHERE elementId(r) = "${deletionId}"
+                    DELETE r;
+                    `
+                );
+
+                res.json({ message: 'Relation deleted successfully' });
+            } catch (error) {
+                if (error instanceof Error)
+                    res.status(500).json({
+                        error: 'Error deleting relation',
+                        message: error.message
+                    });
+            } finally {
+                await session.close();
+            }
+        } catch (err) {
+            res.status(400).json('Not authenticated');
         }
     }
 }
@@ -258,13 +352,13 @@ async function getFullGraph(req: Request, res: Response) {
     const authHeader = req.headers.authorization as string;
     const token = checkAuthHeader(authHeader, res);
 
-    if (token !== "") {
+    if (token !== '') {
         try {
             jwt.verify(token, process.env.JWT_SECRET, {
-                algorithms: ["HS256"],
+                algorithms: ['HS256']
             });
 
-            const session = n4jDriver.session();
+            const session = n4jDriver.session({ database: process.env.NEO4J_PW_MANAGER_DB });
 
             try {
                 const result = await session.run('MATCH (n1)-[r]->(n2) RETURN n1, r, n2');
@@ -289,6 +383,7 @@ async function getFullGraph(req: Request, res: Response) {
 
                 const d3Edges = n4jEdges.map((e) => {
                     return {
+                        id: e.elementId,
                         source: e.startNodeElementId,
                         target: e.endNodeElementId,
                         value: e.type
@@ -303,9 +398,18 @@ async function getFullGraph(req: Request, res: Response) {
                 await session.close();
             }
         } catch (err) {
-            res.status(400).json("Not authenticated");
+            res.status(400).json('Not authenticated');
         }
     }
 }
 
-export default { addCred, addRelation, getFullGraph, updateCredNode, deleteNodeProperties, deleteNode };
+export default {
+    addCred,
+    addRelation,
+    getFullGraph,
+    updateCredNode,
+    updateRelationProperties,
+    deleteNodeProperties,
+    deleteNode,
+    deleteRelation
+};

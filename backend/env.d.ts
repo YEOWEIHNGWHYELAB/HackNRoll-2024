@@ -7,5 +7,10 @@ declare namespace NodeJS {
         PGDBPASSWORD: string;
         PGDBPORT: string;
         WEBPORT: string;
+
+        NEO4J_URI: string;
+        NEO4J_PW_MANAGER_DB: string;
+        NEO4J_USERNAME: string;
+        NEO4J_PASSWORD: string;
     }
 }

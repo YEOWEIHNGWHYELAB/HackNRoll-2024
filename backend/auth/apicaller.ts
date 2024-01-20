@@ -1,12 +1,12 @@
 import { Request, Response } from 'express';
-import { type Pool } from 'pg';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { n4jDriver } from '../cred/index';
 import { generateToken } from './jwtmanager';
+import { getPool } from './pool';
 
 // Register user
-async function register(req: Request, res: Response, pool: Pool) {
+async function register(req: Request, res: Response) {
     const { username, email, password } = req.body;
 
     if (!username || !email || !password) {
@@ -15,7 +15,9 @@ async function register(req: Request, res: Response, pool: Pool) {
 
     try {
         // Check if user already exists
-        const queryResult = await pool.query('SELECT * FROM users WHERE username = $1', [username]);
+        const queryResult = await getPool().query('SELECT * FROM users WHERE username = $1', [
+            username
+        ]);
         const user = queryResult.rows[0];
 
         if (user) {
@@ -26,7 +28,7 @@ async function register(req: Request, res: Response, pool: Pool) {
         const hashedPassword = await bcrypt.hash(password, 10);
 
         // Insert new user
-        const insertResult = await pool.query(
+        const insertResult = await getPool().query(
             'INSERT INTO users (username, email, password) VALUES ($1, $2, $3) RETURNING *',
             [username, email, hashedPassword]
         );
@@ -43,7 +45,7 @@ async function register(req: Request, res: Response, pool: Pool) {
             );
         } catch (error) {
             if (error instanceof Error)
-                res.status(500).json({
+                console.log({
                     error: 'Error inserting data into Neo4j',
                     message: error.message
                 });
@@ -57,7 +59,7 @@ async function register(req: Request, res: Response, pool: Pool) {
 }
 
 // Login user
-async function login(req: Request, res: Response, pool: Pool) {
+async function login(req: Request, res: Response) {
     const { username, password } = req.body;
 
     if (!username || !password) {
@@ -66,7 +68,9 @@ async function login(req: Request, res: Response, pool: Pool) {
 
     try {
         // Check if user exists
-        const queryResult = await pool.query('SELECT * FROM users WHERE username = $1', [username]);
+        const queryResult = await getPool().query('SELECT * FROM users WHERE username = $1', [
+            username
+        ]);
         const user = queryResult.rows[0];
 
         if (!user) {

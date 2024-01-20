@@ -1,18 +1,17 @@
 import express, { type Request, type Response } from 'express';
-import { type Pool } from 'pg';
 import authController from './apicaller';
 
 const router = express.Router();
 
-export function authRouter(pool: Pool) {
+export function authRouter() {
     // Register user
     router.post('/register', (req: Request, res: Response) => {
-        authController.register(req, res, pool);
+        authController.register(req, res);
     });
 
     // Login user
     router.post('/login', (req: Request, res: Response) => {
-        authController.login(req, res, pool);
+        authController.login(req, res);
     });
 
     // whoami

@@ -14,6 +14,7 @@
     - PGDBPASSWORD=password
     - PGDBPORT=5432
     - NEO4J_URI=bolt://localhost:7687
+    - NEO4J_PW_MANAGER_DB=neo4j
     - NEO4J_USERNAME=neo4j
     - NEO4J_PASSWORD=password
     - JWT_SECRET=I_Love_hack_@_roll_2024

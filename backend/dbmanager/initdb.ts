@@ -1,19 +1,19 @@
-import { type Pool } from 'pg';
+import { getPool } from '../auth/pool';
 
-async function initpgdb(pool: Pool, sqlScript: string, dbName: string) {
+async function initpgdb(sqlScript: string, dbName: string) {
     try {
-        await pool.query(sqlScript);
+        await getPool().query(sqlScript);
         console.log(`Completed initialization to database: ${dbName}`);
-    } catch(error) {
-        console.log("Error connecting to PostgreSQL database", error);
+    } catch (error) {
+        console.log('Error connecting to PostgreSQL database', error);
     }
-};
+}
 
-async function testPGConnection(pool: Pool) {
+async function testPGConnection() {
     try {
-        const resultTime = await pool.query('SELECT NOW()');
+        const resultTime = await getPool().query('SELECT NOW()');
         console.log('Connected to PostgresDB at', resultTime.rows[0].now);
-    } catch(error) {
+    } catch (error) {
         console.error('Error connecting to Postgres Database', error);
     }
 }

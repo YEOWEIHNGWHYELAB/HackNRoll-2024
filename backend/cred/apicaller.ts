@@ -25,6 +25,7 @@ type D3Node = {
     id: string;
     name: string;
     group: string;
+    properties: Record<string, string>;
 };
 
 type D3Edge = {
@@ -32,6 +33,7 @@ type D3Edge = {
     source: string;
     target: string;
     value: string | number;
+    properties: Record<string, string>;
 };
 
 /**
@@ -361,12 +363,12 @@ async function getFullGraph(req: Request, res: Response) {
             const session = n4jDriver.session({ database: process.env.NEO4J_PW_MANAGER_DB });
 
             try {
-                const result = await session.run('MATCH (n1)-[r]->(n2) RETURN n1, r, n2');
-                const fromNodes = result.records.map((rec) => rec.get('n1')) as N4JNode[];
-                const toNodes = result.records.map((rec) => rec.get('n2')) as N4JNode[];
-                const n4jEdges = result.records.map((rec) => rec.get('r')) as N4JEdge[];
+                const edgeResult = await session.run('MATCH ()-[r]->() RETURN r');
+                const n4jEdges = edgeResult.records.map((rec) => rec.get('r') as N4JEdge);
 
-                const n4jNodes = [...fromNodes, ...toNodes];
+                const nodeResults = await session.run('MATCH (n) RETURN (n)');
+                const n4jNodes = nodeResults.records.map((rec) => rec.get('n') as N4JNode);
+
                 const d3Nodes = n4jNodes.reduce((acc: D3Node[], cur) => {
                     if (acc.some((n) => n.id === cur.elementId)) return acc;
                     const displayName = (Object.values(cur.properties) ?? [''])[0];
@@ -376,7 +378,8 @@ async function getFullGraph(req: Request, res: Response) {
                         {
                             id: cur.elementId,
                             name: `${displayName} (${category})`,
-                            group: 'default'
+                            group: 'default',
+                            properties: cur.properties
                         }
                     ];
                 }, []);
@@ -386,7 +389,8 @@ async function getFullGraph(req: Request, res: Response) {
                         id: e.elementId,
                         source: e.startNodeElementId,
                         target: e.endNodeElementId,
-                        value: e.type
+                        value: e.type,
+                        properties: e.properties
                     } as D3Edge;
                 });
 

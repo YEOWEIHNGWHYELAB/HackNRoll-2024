@@ -26,11 +26,17 @@ export const NetworkDiagram = ({
   const d3Svg = d3.select(svgRef.current);
 
   const itemClick = useCallback(
-    (type: string, id: string, name: string) => {
+    (
+      type: string,
+      id: string,
+      name: string,
+      properties: Record<string, string>
+    ) => {
       setActiveItem({
         type,
         id,
         name,
+        properties,
       });
     },
     [setActiveItem]

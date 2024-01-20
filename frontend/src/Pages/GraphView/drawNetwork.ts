@@ -2,7 +2,6 @@ import * as d3 from "d3";
 import {
   D3Edge,
   D3Node,
-  GraphSelection,
   MIN_LINK_LEN,
   NODE_ATTRACT_STRENGTH,
   RADIUS,
@@ -17,11 +16,30 @@ export const drawNetworkSvg = (
   height: number,
   nodes: D3Node[],
   links: D3Edge[],
-  setActiveItem: (type: string, id: string, name: string) => void
+  setActiveItem: (
+    type: string,
+    id: string,
+    name: string,
+    properties: Record<string, string>
+  ) => void
 ) => {
   links = cleanLinks(links);
 
   d3Svg.selectAll("*").remove();
+
+  const zoom = d3
+    .zoom()
+    .scaleExtent([0.1, 10])
+    .translateExtent([
+      [-100, -100],
+      [width + 90, height + 100],
+    ])
+    .on("zoom", (e: d3.D3ZoomEvent<SVGSVGElement, unknown>) => {
+      d3Svg.attr("transform", e.transform.toString());
+    });
+
+  // @ts-expect-error
+  d3Svg.call(zoom);
 
   d3Svg
     .append("svg:defs")
@@ -51,6 +69,12 @@ export const drawNetworkSvg = (
     )
     .force("charge", d3.forceManyBody().strength(NODE_ATTRACT_STRENGTH))
     .force("center", d3.forceCenter(width / 2, height / 2))
+    .force("bounding-box", () => {
+      for (let node of nodes) {
+        node.x = Math.max(RADIUS, Math.min(width - RADIUS, node.x || 0));
+        node.y = Math.max(RADIUS, Math.min(height - RADIUS, node.y || 0));
+      }
+    })
     .on("tick", () => ticked(width, height));
 
   const link = d3Svg
@@ -79,7 +103,7 @@ export const drawNetworkSvg = (
     .style("cursor", "pointer")
     .style("user-select", "none")
     .on("click", (d, e) => {
-      setActiveItem("Relationship", e.id, e.value.toString());
+      setActiveItem("Relationship", e.id, e.value.toString(), e.properties);
     });
 
   const node = d3Svg
@@ -94,7 +118,7 @@ export const drawNetworkSvg = (
     .attr("data-id", (d) => d.id)
     .style("cursor", "pointer")
     .on("click", (e, d) => {
-      setActiveItem("Node", d.id, d.name);
+      setActiveItem("Node", d.id, d.name, d.properties);
     });
 
   node.call(
@@ -124,7 +148,7 @@ export const drawNetworkSvg = (
     .style("cursor", "pointer")
     .style("user-select", "none")
     .on("click", (e, d) => {
-      setActiveItem("Node", d.id, d.name);
+      setActiveItem("Node", d.id, d.name, d.properties);
     });
 
   function dragstarted(

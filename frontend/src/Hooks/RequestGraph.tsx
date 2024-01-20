@@ -21,7 +21,22 @@ export default function RequestGraph() {
         enqueueSnackbar(formattedError);
     }, [enqueueSnackbar, setError, setLoading]);
 
+    /**
+     * Get username
+     */
+    const getUsername = useCallback(async () => {
+        try {
+            return await axios.get("/auth/whoami", setHeaderToken());
+        } catch (error) {
+            handleRequestResourceError(error);
+        }
+    }, [handleRequestResourceError]);
+
+    /**
+     * Load the full graph from the backend
+     */
     const loadFullGraph = useCallback(() => {
+        // Function body
         setLoading(true);
 
         axios.get("/cred/fullGraph", setHeaderToken())
@@ -36,9 +51,32 @@ export default function RequestGraph() {
             .catch(handleRequestResourceError);
     }, [enqueueSnackbar, setLoading, handleRequestResourceError]);
 
+    /**
+     * Create a new credential node
+     */
+    const createCred = useCallback(async (cred : any) => {
+        setLoading(true);
+
+        const res = await getUsername();
+        cred["created_by"] = res?.data?.username;
+
+        axios.post("/cred/add", cred, setHeaderToken())
+            .then((res) => {
+                enqueueSnackbar("Credential added successfully!");
+                setLoading(false);
+                window.location.reload();
+            })
+            .catch(handleRequestResourceError);
+    }, [setLoading, getUsername, handleRequestResourceError, enqueueSnackbar]);
+
+    /**
+     * Create a new relation between 2 nodes
+     */
+
     return {
         res,
         loadFullGraph,
+        createCred,
         error
     }
 }

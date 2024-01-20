@@ -40,6 +40,11 @@ export function credRouter() {
         credController.findCredential(req, res);
     });
 
+    // Store credential
+    router.post('/storecred', async (req: Request, res: Response) => {
+        credController.storeCredential(req, res);
+    });
+
     // Update credential node properties
     router.patch('/add', (req: Request, res: Response) => {
         credController.updateCredNode(req, res);

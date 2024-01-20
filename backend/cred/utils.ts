@@ -1,34 +1,35 @@
 import { Driver } from 'neo4j-driver';
 import validator from 'validator';
+import { getPool } from '../auth/pool';
 
 const knownURLs: string[] = [
-    "reddit",
-    "github",
-    "facebook",
-    "leetcode",
-    "twitter",
-    "ebay",
-    "amazon",
-    "google",
-    "linkedin",
-    "instagram",
-    "stackoverflow",
-    "netflix",
-    "live",
-    "tcscodevita",
-    "talenox",
-    "apple",
-    "lenovo",
-    "steam",
-    "discord",
-    "hackerrank",
-    "epicgames",
-    "nus"
+    'reddit',
+    'github',
+    'facebook',
+    'leetcode',
+    'twitter',
+    'ebay',
+    'amazon',
+    'google',
+    'linkedin',
+    'instagram',
+    'stackoverflow',
+    'netflix',
+    'live',
+    'tcscodevita',
+    'talenox',
+    'apple',
+    'lenovo',
+    'steam',
+    'discord',
+    'hackerrank',
+    'epicgames',
+    'nus'
 ];
 
 /**
  * Warning:
- * 
+ *
  * The ordering of authentication matters! You should order by specific authentication to general authentication (email)
  */
 type AuthRelationTable = {
@@ -36,15 +37,15 @@ type AuthRelationTable = {
 };
 
 const authRelationTable: AuthRelationTable = {
-    "leetcode": ["github", "email"],
-    "reddit": ["apple", "email"],
-    "github": ["email"],
-    "epicgames": ["steam", "apple", "email"],
-    "steam": ["email"],
-    "discord": ["email"],
-    "hackerrank": ["linkedin", "github", "email"],
-    "amazon": ["email"],
-    "linkedin": ["email"]
+    leetcode: ['github', 'email'],
+    reddit: ['apple', 'email'],
+    github: ['email'],
+    epicgames: ['steam', 'apple', 'email'],
+    steam: ['email'],
+    discord: ['email'],
+    hackerrank: ['linkedin', 'github', 'email'],
+    amazon: ['email'],
+    linkedin: ['email']
 };
 
 /**
@@ -55,12 +56,12 @@ type EmailRelationTable = {
 };
 
 const emailRelationTable: EmailRelationTable = {
-    "u.nus.edu": "nus",
-    "live.com": "live",
-    "hotmail.com": "live",
-    "icloud.com": "apple",
-    "gmail.com": "google",
-    "outlook.com": "live"
+    'u.nus.edu': 'nus',
+    'live.com': 'live',
+    'hotmail.com': 'live',
+    'icloud.com': 'apple',
+    'gmail.com': 'google',
+    'outlook.com': 'live'
 };
 
 const isEmail = (input: string): boolean => {
@@ -76,7 +77,7 @@ function getDomainName(url: string): string | null {
                 return knownURLs[i];
             }
         }
-        return "";
+        return '';
 
         // return parsedUrl.hostname.replace(/^www\./, '').replace(/-/g, '');
     } catch (error) {
@@ -88,10 +89,12 @@ function getDomainName(url: string): string | null {
 
 function isIPAddress(url: string): boolean {
     // Regular expression for matching an IPv4 address
-    const ipv4Pattern = /^(25[0-5]|2[0-4][0-9]|[0-1]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[0-1]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[0-1]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[0-1]?[0-9][0-9]?)$/;
+    const ipv4Pattern =
+        /^(25[0-5]|2[0-4][0-9]|[0-1]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[0-1]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[0-1]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[0-1]?[0-9][0-9]?)$/;
 
     // Regular expression for matching an IPv6 address
-    const ipv6Pattern = /^([0-9a-fA-F]{1,4}:){7,7}[0-9a-fA-F]{1,4}$|^([0-9a-fA-F]{1,4}:){1,7}:|^([0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]{1,4}$|^([0-9a-fA-F]{1,4}:){1,5}(:[0-9a-fA-F]{1,4}){1,2}$|^([0-9a-fA-F]{1,4}:){1,4}(:[0-9a-fA-F]{1,4}){1,3}$|^([0-9a-fA-F]{1,4}:){1,3}(:[0-9a-fA-F]{1,4}){1,4}$|^([0-9a-fA-F]{1,4}:){1,2}(:[0-9a-fA-F]{1,4}){1,5}$|^[0-9a-fA-F]{1,4}:((:[0-9a-fA-F]{1,4}){1,6})$/;
+    const ipv6Pattern =
+        /^([0-9a-fA-F]{1,4}:){7,7}[0-9a-fA-F]{1,4}$|^([0-9a-fA-F]{1,4}:){1,7}:|^([0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]{1,4}$|^([0-9a-fA-F]{1,4}:){1,5}(:[0-9a-fA-F]{1,4}){1,2}$|^([0-9a-fA-F]{1,4}:){1,4}(:[0-9a-fA-F]{1,4}){1,3}$|^([0-9a-fA-F]{1,4}:){1,3}(:[0-9a-fA-F]{1,4}){1,4}$|^([0-9a-fA-F]{1,4}:){1,2}(:[0-9a-fA-F]{1,4}){1,5}$|^[0-9a-fA-F]{1,4}:((:[0-9a-fA-F]{1,4}){1,6})$/;
 
     return ipv4Pattern.test(url) || ipv6Pattern.test(url);
 }
@@ -117,9 +120,9 @@ function levenshteinDistance(str1: string, str2: string): number {
         for (let j = 1; j <= n; j++) {
             const cost = str1[i - 1] === str2[j - 1] ? 0 : 1;
             matrix[i][j] = Math.min(
-                matrix[i - 1][j] + 1,      // Deletion
-                matrix[i][j - 1] + 1,      // Insertion
-                matrix[i - 1][j - 1] + cost  // Substitution
+                matrix[i - 1][j] + 1, // Deletion
+                matrix[i][j - 1] + 1, // Insertion
+                matrix[i - 1][j - 1] + cost // Substitution
             );
         }
     }
@@ -128,7 +131,11 @@ function levenshteinDistance(str1: string, str2: string): number {
     return matrix[m][n];
 }
 
-function isPasswordSimilar(newPassword: string, oldPassword: string, similarityThreshold: number = 3): boolean {
+function isPasswordSimilar(
+    newPassword: string,
+    oldPassword: string,
+    similarityThreshold: number = 3
+): boolean {
     const distance = levenshteinDistance(newPassword, oldPassword);
     return distance <= similarityThreshold;
 }
@@ -136,7 +143,11 @@ function isPasswordSimilar(newPassword: string, oldPassword: string, similarityT
 /**
  * Build the relationship between nodes from the csv file
  */
-async function buildNodeRelations(csvRow: any, n4jDriver: Driver, username: string) {
+async function buildNodeRelations(
+    csvRow: Record<string, string>,
+    n4jDriver: Driver,
+    username: string
+) {
     const domainName = getDomainName(csvRow.url);
 
     if (domainName === null || isIPAddress(domainName) || domainName.length <= 1) {
@@ -166,7 +177,7 @@ async function buildNodeRelations(csvRow: any, n4jDriver: Driver, username: stri
 
                 // console.log("Target: " + authRelationTarget);
 
-                if (authRelationTarget === "email") {
+                if (authRelationTarget === 'email') {
                     break;
                 }
 
@@ -178,23 +189,26 @@ async function buildNodeRelations(csvRow: any, n4jDriver: Driver, username: stri
                 `);
 
                 const isEmailProperty = isEmail(csvRow.username);
-                const propertyRef = isEmailProperty ? "email" : "username";
+                const propertyRef = isEmailProperty ? 'email' : 'username';
 
                 if (authResult.records.length > 0) {
                     const authNode = authResult.records[0].get('n').elementId;
 
-                    await session.run(`
+                    await session.run(
+                        `
                         MATCH (n1), (n2)
                         WHERE elementId(n1) = "${currentNode}" AND elementId(n2) = "${authNode}"
                         CREATE (n1)-[r:${authRelationTarget}_Relation]->(n2)
-                        SET r.relation_properties = [$propertyRef]
-                    `, { propertyRef });
+                        SET r.relation_properties = [$propertyRef], r.created_by = "${username}"
+                    `,
+                        { propertyRef }
+                    );
 
                     return;
                 }
             }
 
-            if (authRelationTarget === "email" && isEmail(csvRow.username)) {
+            if (authRelationTarget === 'email' && isEmail(csvRow.username)) {
                 const emailDomainTarget = emailRelationTable[csvRow.username.split('@')[1]];
 
                 const authResultEmail = await session.run(`
@@ -211,7 +225,7 @@ async function buildNodeRelations(csvRow: any, n4jDriver: Driver, username: stri
                         MATCH (n1), (n2)
                         WHERE elementId(n1) = "${currentNode}" AND elementId(n2) = "${authNode}"
                         CREATE (n1)-[r:${emailDomainTarget}_Relation]->(n2)
-                        SET r.relation_properties = ["email"]
+                        SET r.relation_properties = ["email"], r.created_by = "${username}"
                     `);
 
                     return;
@@ -219,8 +233,7 @@ async function buildNodeRelations(csvRow: any, n4jDriver: Driver, username: stri
             }
         }
     } catch (error) {
-        if (error instanceof Error)
-            console.error(`Error: ${error.message}`);
+        if (error instanceof Error) console.error(`Error: ${error.message}`);
     } finally {
         await session.close();
     }
@@ -229,13 +242,17 @@ async function buildNodeRelations(csvRow: any, n4jDriver: Driver, username: stri
 /**
  * Read a single row from the csv file and write to database if it does not exist, if it existupdate the database,
  * but for simplicity, we will only update nodes and not relation
- * 
- * Note that each credential are identified by a combination of name and username from the chrome csv password 
+ *
+ * Note that each credential are identified by a combination of name and username from the chrome csv password
  * export, it does not apply for other browsers
- * 
+ *
  * @param csvRow single row from the csv file
  */
-async function readCredNUpdate(csvRow: any, getPool: any, n4jDriver: Driver, username: string) {
+async function readCredNUpdate(
+    csvRow: Record<string, string>,
+    n4jDriver: Driver,
+    username: string
+) {
     const domainName = getDomainName(csvRow.url);
 
     if (domainName === null || isIPAddress(domainName) || domainName.length <= 1) {
@@ -259,13 +276,34 @@ async function readCredNUpdate(csvRow: any, getPool: any, n4jDriver: Driver, use
             const existingElementID = result.records[0].get('n').elementId;
 
             if (result.records[0].get('n').properties.password !== csvRow.password) {
-                console.log(`Updating password for ${csvRow.url}, ${csvRow.username}`);
+                // console.log(`Updating password for ${csvRow.url}, ${csvRow.username}`);
 
-                await getPool().query(`
-                    INSERT INTO PasswordHistory (username, element_id, password, time_changed)
-                    VALUES ($1, $2, $3, CURRENT_TIMESTAMP)`,
-                    [username, existingElementID, csvRow.password]
+                // Query if password exist in history first
+                const passwordHistoryResult = await getPool().query(
+                    `
+                    SELECT password
+                    FROM PasswordHistory
+                    WHERE username = $1 AND element_id = $2
+                    `, [username, existingElementID]
                 );
+
+                let pwdExist: boolean = false;
+
+                for (let i = 0; i < passwordHistoryResult.rows.length; i++) {
+                    if (passwordHistoryResult.rows[i].password === csvRow.password) {
+                        pwdExist = true;
+                        break;
+                    }
+                }
+
+                if (!pwdExist) {
+                    await getPool().query(
+                        `
+                        INSERT INTO PasswordHistory (username, element_id, password, time_changed)
+                        VALUES ($1, $2, $3, CURRENT_TIMESTAMP)`,
+                        [username, existingElementID, csvRow.password]
+                    );
+                }
 
                 await session.run(`
                     MATCH (n)
@@ -275,7 +313,7 @@ async function readCredNUpdate(csvRow: any, getPool: any, n4jDriver: Driver, use
                 `);
             }
         } else {
-            ``
+            ``;
             // Create new node
             let currNewNode;
 
@@ -309,8 +347,7 @@ async function readCredNUpdate(csvRow: any, getPool: any, n4jDriver: Driver, use
             );
         }
     } catch (error) {
-        if (error instanceof Error)
-            console.error(`Error: ${error.message}`);
+        if (error instanceof Error) console.error(`Error: ${error.message}`);
     } finally {
         await session.close();
     }

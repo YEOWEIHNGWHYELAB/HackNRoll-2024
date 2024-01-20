@@ -30,7 +30,7 @@ const GraphView: React.FC = () => {
   const [isSelectingDest, setIsSelectingDest] = useState(false);
   const [openRelation, setOpenRelation] = useState(false);
   const [formData, setFormData] = useState<FormData>({
-    label: "Google",
+    label: "google",
     email: "",
     password: "",
     password_confirm: "",
@@ -74,7 +74,7 @@ const GraphView: React.FC = () => {
     setOpen(false);
     setActiveItem(undefined);
     setFormData({
-      label: "Google",
+      label: "google",
       email: "",
       password: "",
       password_confirm: "",
@@ -148,7 +148,7 @@ const GraphView: React.FC = () => {
     handleClose();
     setActiveItem(undefined);
     setFormData({
-      label: "Google",
+      label: "google",
       email: "",
       password: "",
       password_confirm: "",
@@ -161,7 +161,7 @@ const GraphView: React.FC = () => {
     handleClose();
     setActiveItem(undefined);
     setFormData({
-      label: "Google",
+      label: "google",
       email: "",
       password: "",
       password_confirm: "",
@@ -191,6 +191,16 @@ const GraphView: React.FC = () => {
 
       if (!isSelectingDest && !isSelectingSrc && activeItem.type === "Node") {
         handleClickOpen();
+      }
+
+      if (activeItem.type === "Relationship") {
+        let refPropStr = "";
+
+        for (let i = 0; i < activeItem.properties.relation_properties.length; i++) {
+          refPropStr += activeItem.properties.relation_properties[i] + ", ";
+        }
+
+        alert("Reference Properties: " + refPropStr);
       }
     }
   }, [activeItem]);

@@ -15,6 +15,7 @@ import Collapse from "@mui/material/Collapse";
 import SearchIcon from "@mui/icons-material/Search";
 import TimelineIcon from '@mui/icons-material/Timeline';
 import SpeedIcon from '@mui/icons-material/Speed';
+import UploadFileIcon from '@mui/icons-material/UploadFile';
 
 import { Box } from "@mui/system";
 import { GlobalStyles, useTheme } from "@mui/material";
@@ -26,7 +27,7 @@ const listItems = [
     key: "lookup",
     name: "Dashboard",
     icon: <SpeedIcon />,
-    children: [{ name: "Lookup", icon: <SearchIcon />, to: "/lookup" }],
+    children: [{ name: "Upload Credentials", icon: <UploadFileIcon />, to: "/upload" }],
   },
   {
     key: "graphView",

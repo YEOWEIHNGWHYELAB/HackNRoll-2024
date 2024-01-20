@@ -20,7 +20,8 @@ export const drawNetworkSvg = (
     type: string,
     id: string,
     name: string,
-    properties: Record<string, string>
+    properties: Record<string, string>,
+    breached: boolean
   ) => void
 ) => {
   links = cleanLinks(links);
@@ -32,7 +33,7 @@ export const drawNetworkSvg = (
     .scaleExtent([0.1, 10])
     .translateExtent([
       [-100, -100],
-      [width + 90, height + 100],
+      [width, height],
     ])
     .on("zoom", (e: d3.D3ZoomEvent<SVGSVGElement, unknown>) => {
       d3Svg.attr("transform", e.transform.toString());
@@ -103,22 +104,28 @@ export const drawNetworkSvg = (
     .style("cursor", "pointer")
     .style("user-select", "none")
     .on("click", (d, e) => {
-      setActiveItem("Relationship", e.id, e.value.toString(), e.properties);
+      setActiveItem(
+        "Relationship",
+        e.id,
+        e.value.toString(),
+        e.properties,
+        false
+      );
     });
 
   const node = d3Svg
     .append("g")
-    .attr("stroke", "#fff")
-    .attr("stroke-width", 1.5)
     .selectAll()
     .data(nodes)
     .join("circle")
+    .attr("stroke", (d) => (d.breached ? "#f00" : "#fff"))
+    .attr("stroke-width", (d) => (d.breached ? 3 : 1.5))
     .attr("r", RADIUS)
     .attr("fill", (d) => color(d.name))
     .attr("data-id", (d) => d.id)
     .style("cursor", "pointer")
     .on("click", (e, d) => {
-      setActiveItem("Node", d.id, d.name, d.properties);
+      setActiveItem("Node", d.id, d.name, d.properties, d.breached ?? false);
     });
 
   node.call(
@@ -148,7 +155,7 @@ export const drawNetworkSvg = (
     .style("cursor", "pointer")
     .style("user-select", "none")
     .on("click", (e, d) => {
-      setActiveItem("Node", d.id, d.name, d.properties);
+      setActiveItem("Node", d.id, d.name, d.properties, d.breached ?? false);
     });
 
   function dragstarted(

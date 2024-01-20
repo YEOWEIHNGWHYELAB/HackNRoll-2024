@@ -18,7 +18,7 @@ import BaseLayout from "./BaseLayout";
 
 import Login from "./Pages/Auth/Login";
 import Register from "./Pages/Auth/Register";
-import Lookup from "./Pages/Lookup/Lookup";
+import UploadFile from "./Pages/Dash/UploadFile";
 import GraphView from "./Pages/GraphView/GraphView";
 
 function App() {
@@ -39,7 +39,7 @@ function App() {
                 <Route index element={<Navigate to="/auth/login" />} />
                 <Route element={<RequireAuth />}>
                   <Route element={<BaseLayout />}>
-                    <Route path="/lookup" element={<Lookup />} />
+                    <Route path="/upload" element={<UploadFile />} />
                   </Route>
                   <Route element={<BaseLayout />}>
                     <Route path="/graph-view" element={<GraphView />} />

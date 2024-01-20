@@ -5,6 +5,7 @@ export interface D3Node extends SimulationNodeDatum {
   name: string;
   group: string;
   properties: Record<string, string>;
+  breached?: boolean;
 }
 
 export interface D3Edge extends SimulationLinkDatum<D3Node> {
@@ -24,6 +25,7 @@ export type GraphSelection = {
   id: string;
   name: string;
   properties: Record<string, string>;
+  breached: boolean;
 };
 
 export const RADIUS = 30;

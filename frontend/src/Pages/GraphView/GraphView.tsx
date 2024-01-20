@@ -7,7 +7,7 @@ import {
   TextField,
 } from "@mui/material";
 
-import { NetworkDiagram } from "./NetworkDiagram";
+import { NetworkDiagramMemo } from "./NetworkDiagram";
 import { GraphData, GraphSelection } from "./data";
 import RequestGraph from "../../Hooks/RequestGraph";
 
@@ -16,10 +16,10 @@ interface FormData {
 }
 
 const nodeInfoStyle = {
-  margin: '10px',
-  padding: '10px',
-  border: '1px solid #ccc',
-  borderRadius: '5px',
+  margin: "10px",
+  padding: "10px",
+  border: "1px solid #ccc",
+  borderRadius: "5px",
 };
 
 const GraphView: React.FC = () => {
@@ -37,14 +37,25 @@ const GraphView: React.FC = () => {
   });
   const [newFieldName, setNewFieldName] = useState("");
 
-  const { res, loadFullGraph, createCred, updateCred, deleteCred, createCredRelation, deleteCredRelation } =
-    RequestGraph();
-  
+  const {
+    res,
+    loadFullGraph,
+    checkPasswordSimilarity,
+    createCred,
+    updateCred,
+    deleteCred,
+    createCredRelation,
+    deleteCredRelation,
+    clearBreached,
+  } = RequestGraph();
+
   const handleCheckboxChange = (key: string) => {
     // Check if the key is already selected
     if (selectedKeys.includes(key)) {
       // If selected, remove it from the array
-      setSelectedKeys(selectedKeys.filter(selectedKey => selectedKey !== key));
+      setSelectedKeys(
+        selectedKeys.filter((selectedKey) => selectedKey !== key)
+      );
     } else {
       // If not selected, add it to the array
       setSelectedKeys([...selectedKeys, key]);
@@ -89,7 +100,11 @@ const GraphView: React.FC = () => {
   const handleAddField = (fieldName: string) => {
     if (fieldName === "" || fieldName === undefined) {
       alert("Field name cannot be empty!");
-    } else if (fieldName === "label" || fieldName === "created_by" || fieldName === "password_confirm") {
+    } else if (
+      fieldName === "label" ||
+      fieldName === "created_by" ||
+      fieldName === "password_confirm"
+    ) {
       alert("Illegal field name!");
     } else {
       setFormData((prevData) => ({
@@ -107,13 +122,27 @@ const GraphView: React.FC = () => {
     setFormData(updatedFormData);
   };
 
+  const handleClearBreached = (elemId: string) => {
+    clearBreached(elemId);
+  };
+
   const handleSubmit = (isCreate: boolean) => {
     if (formData.created_by === undefined) {
       createCred((({ password_confirm, ...rest }) => rest)(formData));
     } else {
-      let updateData = (({ password_confirm, ...rest }) => rest)(formData);
-      updateData["elementId"] = activeItem?.id || "";
-      updateCred(updateData);
+      if (
+        activeItem?.properties.password !== undefined &&
+        formData.password !== activeItem.properties.password
+      ) {
+        checkPasswordSimilarity(
+          { elementId: activeItem.id, password: formData.password },
+          () => {
+            updateCredentialProperties(formData, activeItem, updateCred);
+          }
+        );
+      } else {
+        updateCredentialProperties(formData, activeItem, updateCred);
+      }
     }
 
     handleClose();
@@ -226,7 +255,10 @@ const GraphView: React.FC = () => {
         <Button
           variant="outlined"
           disabled={activeItem?.type !== "Relationship"}
-          style={{ margin: "2px", color: activeItem?.type !== "Relationship" ? "transparent" : "red", }}
+          style={{
+            margin: "2px",
+            color: activeItem?.type !== "Relationship" ? "transparent" : "red",
+          }}
           onClick={() => {
             deleteCredRelation({ elementId: activeItem?.id || "" });
           }}
@@ -347,6 +379,17 @@ const GraphView: React.FC = () => {
             >
               Delete
             </Button>
+            {activeItem && activeItem.breached ? (
+              <Button
+                variant="contained"
+                style={{ backgroundColor: "pink", margin: 2 }}
+                onClick={() => handleClearBreached(activeItem.id)}
+              >
+                Clear Breach
+              </Button>
+            ) : (
+              ""
+            )}
           </div>
         </DialogContent>
       </Dialog>
@@ -388,68 +431,80 @@ const GraphView: React.FC = () => {
 
           {activeItemSrc && (
             <div style={nodeInfoStyle}>
-              <strong>Selected Source Node:</strong> 
-              <br/>
-              <strong>Label: {activeItemSrc.name}</strong> 
-              <br/>
+              <strong>Selected Source Node:</strong>
+              <br />
+              <strong>Label: {activeItemSrc.name}</strong>
+              <br />
               <strong>Element ID: {activeItemSrc.id} </strong>
-              <br/>
-              <br/>
+              <br />
+              <br />
               <strong>Properties: </strong>
               <>
-                {activeItemSrc.properties && Object.keys(activeItemSrc.properties).filter((curr) => curr !== "created_by").map((key) => (
-                  <div>
-                    <strong>{key}: </strong> {activeItemSrc.properties[key]}
-                  </div>
-                ))}
+                {activeItemSrc.properties &&
+                  Object.keys(activeItemSrc.properties)
+                    .filter((curr) => curr !== "created_by")
+                    .map((key) => (
+                      <div>
+                        <strong>{key}: </strong> {activeItemSrc.properties[key]}
+                      </div>
+                    ))}
               </>
             </div>
           )}
 
           {activeItemDest && (
             <div style={nodeInfoStyle}>
-              <strong>Selected Destination Node:</strong> 
-              <br/>
-              <strong>Label: {activeItemDest.name}</strong> 
-              <br/>
+              <strong>Selected Destination Node:</strong>
+              <br />
+              <strong>Label: {activeItemDest.name}</strong>
+              <br />
               <strong>Element ID: {activeItemDest.id} </strong>
-              <br/>
-              <br/>
+              <br />
+              <br />
               <strong>Properties: </strong>
               <>
-                {activeItemDest.properties && Object.keys(activeItemDest.properties).filter((curr) => curr !== "created_by").map((key) => (
-                  <div>
-                    <input
-                      type="checkbox"
-                      id={key}
-                      checked={selectedKeys.includes(key)}
-                      onChange={() => handleCheckboxChange(key)}
-                    />
-                    <strong>{key}: </strong> {activeItemDest.properties[key]}
-                  </div>
-                ))}
+                {activeItemDest.properties &&
+                  Object.keys(activeItemDest.properties)
+                    .filter((curr) => curr !== "created_by")
+                    .map((key) => (
+                      <div>
+                        <input
+                          type="checkbox"
+                          id={key}
+                          checked={selectedKeys.includes(key)}
+                          onChange={() => handleCheckboxChange(key)}
+                        />
+                        <strong>{key}: </strong>{" "}
+                        {activeItemDest.properties[key]}
+                      </div>
+                    ))}
               </>
             </div>
           )}
 
-          <Button variant="contained" color="primary" disabled={!(activeItemSrc && activeItemDest)} onClick={() => {
-            if (activeItemSrc && activeItemDest) {
-              createCredRelation({
-                src_node_id: activeItemSrc.id,
-                dest_node_id: activeItemDest.id,
-                relation_type: activeItemDest.name + "_Relation",
-                reference_properties: selectedKeys,
-              });
-            } else {
-              alert("Please select both source and destination nodes!");
-            }
-          }}>
+          <Button
+            variant="contained"
+            color="primary"
+            disabled={!(activeItemSrc && activeItemDest)}
+            onClick={() => {
+              if (activeItemSrc && activeItemDest) {
+                createCredRelation({
+                  src_node_id: activeItemSrc.id,
+                  dest_node_id: activeItemDest.id,
+                  relation_type: activeItemDest.name + "_Relation",
+                  reference_properties: selectedKeys,
+                });
+              } else {
+                alert("Please select both source and destination nodes!");
+              }
+            }}
+          >
             Create Relation
           </Button>
         </DialogContent>
       </Dialog>
 
-      <NetworkDiagram
+      <NetworkDiagramMemo
         data={d3Graph}
         nodeFilter={nodeFilter}
         setActiveItem={setActiveItem}
@@ -459,3 +514,12 @@ const GraphView: React.FC = () => {
 };
 
 export default GraphView;
+function updateCredentialProperties(
+  formData: FormData,
+  activeItem: GraphSelection | undefined,
+  updateCred: (cred: any) => void
+) {
+  let updateData = (({ password_confirm, ...rest }) => rest)(formData);
+  updateData["elementId"] = activeItem?.id || "";
+  updateCred(updateData);
+}

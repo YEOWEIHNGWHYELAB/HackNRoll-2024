@@ -51,7 +51,7 @@ async function addCred(req: Request, res: Response) {
 
             const newNode = req.body;
             const label = newNode.label;
-            const session = n4jDriver.session();
+            const session = n4jDriver.session({ database: process.env.NEO4J_PW_MANAGER_DB });
 
             try {
                 const result = await session.run(
@@ -99,7 +99,7 @@ async function addRelation(req: Request, res: Response) {
             const destId = req.body.dest_node_id;
             const relationType = req.body.relation_type;
             const referenceProperties = req.body.reference_properties;
-            const session = n4jDriver.session();
+            const session = n4jDriver.session({ database: process.env.NEO4J_PW_MANAGER_DB });
 
             try {
                 await session.run(
@@ -109,7 +109,9 @@ async function addRelation(req: Request, res: Response) {
                 MATCH (destNode)
                 WHERE elementId(destNode) = '${destId}'
                 CREATE (srcNode)-[r:${relationType}]->(destNode)
-                SET r.relation_properties = $referenceProperties, r.created_by = "${(decoded as jwt.JwtPayload).username}"
+                SET r.relation_properties = $referenceProperties, r.created_by = "${
+                    (decoded as jwt.JwtPayload).username
+                }"
                 `,
                     { referenceProperties }
                 );
@@ -145,14 +147,35 @@ async function updateCredNode(req: Request, res: Response) {
 
             const updateNodeData = req.body;
             const updateID = updateNodeData.elementId;
-            const session = n4jDriver.session();
+            const session = n4jDriver.session({ database: process.env.NEO4J_PW_MANAGER_DB });
 
             const paramArr: string[] = Object.entries(updateNodeData)
-                .filter(([key, value]) => key !== 'elementId' && value !== undefined)
+                .filter(
+                    ([key, value]) => key !== 'elementId' && key !== 'label' && value !== undefined
+                )
                 .map(([key, value]) => `n.${key} = "${value}"`);
             const paramStr: string = paramArr.join(', ');
 
             try {
+                const availableProperties = await session.run(`
+                    MATCH (n)
+                    WHERE elementId(n) = "${updateID}"
+                    RETURN keys(n) AS propertyKeys`);
+
+                const keyarr: string[] = availableProperties.records[0].get('propertyKeys');
+
+                for (let i = 0; i < keyarr.length; i++) {
+                    if (updateNodeData[keyarr[i]] === undefined && keyarr[i] !== 'created_by') {
+                        await session.run(
+                            `
+                            MATCH (n)
+                            WHERE elementId(n) = "${updateID}"
+                            REMOVE n.${keyarr[i]}
+                            `
+                        );
+                    }
+                }
+
                 const result = await session.run(
                     `
                     MATCH (n)
@@ -197,7 +220,7 @@ async function updateRelationProperties(req: Request, res: Response) {
             const updateID = req.body.elementId;
             const referenceProperties = req.body.reference_properties;
 
-            const session = n4jDriver.session();
+            const session = n4jDriver.session({ database: process.env.NEO4J_PW_MANAGER_DB });
 
             try {
                 await session.run(
@@ -227,47 +250,6 @@ async function updateRelationProperties(req: Request, res: Response) {
 }
 
 /**
- * Delete a selected node property by its elementId
- */
-async function deleteNodeProperties(req: Request, res: Response) {
-    const authHeader = req.headers.authorization as string;
-    const token = checkAuthHeader(authHeader, res);
-
-    if (token !== '') {
-        try {
-            jwt.verify(token, process.env.JWT_SECRET, {
-                algorithms: ['HS256']
-            });
-
-            const propertiesToDelete = req.body;
-            const session = n4jDriver.session();
-
-            try {
-                await session.run(
-                    `
-                    MATCH (n)
-                    WHERE elementId(n) = "${propertiesToDelete.elementId}"
-                    REMOVE n.${propertiesToDelete.property}
-                    `
-                );
-
-                res.json({ message: 'Credential property deleted successfully' });
-            } catch (error) {
-                if (error instanceof Error)
-                    res.status(500).json({
-                        error: 'Error deleting property',
-                        message: error.message
-                    });
-            } finally {
-                await session.close();
-            }
-        } catch (err) {
-            res.status(400).json('Not authenticated');
-        }
-    }
-}
-
-/**
  * Delete a selected node by its elementId, but it will delete all relation attached to it too
  */
 async function deleteNode(req: Request, res: Response) {
@@ -281,7 +263,7 @@ async function deleteNode(req: Request, res: Response) {
             });
 
             const nodeToDelete = req.body;
-            const session = n4jDriver.session();
+            const session = n4jDriver.session({ database: process.env.NEO4J_PW_MANAGER_DB });
 
             try {
                 await session.run(
@@ -323,7 +305,7 @@ async function deleteRelation(req: Request, res: Response) {
 
             const deletionId = req.body.elementId;
 
-            const session = n4jDriver.session();
+            const session = n4jDriver.session({ database: process.env.NEO4J_PW_MANAGER_DB });
 
             try {
                 await session.run(
@@ -366,15 +348,13 @@ async function getFullGraph(req: Request, res: Response) {
                 const edgeResult = await session.run(`
                     MATCH ()-[r]->() 
                     WHERE r.created_by = "${(decoded as jwt.JwtPayload).username}"
-                    RETURN r`
-                );
+                    RETURN r`);
                 const n4jEdges = edgeResult.records.map((rec) => rec.get('r') as N4JEdge);
 
                 const nodeResults = await session.run(`
                     MATCH (n)
                     WHERE n.created_by = "${(decoded as jwt.JwtPayload).username}" 
-                    RETURN (n)`
-                );
+                    RETURN (n)`);
                 const n4jNodes = nodeResults.records.map((rec) => rec.get('n') as N4JNode);
 
                 const d3Nodes = n4jNodes.reduce((acc: D3Node[], cur) => {
@@ -421,7 +401,6 @@ export default {
     getFullGraph,
     updateCredNode,
     updateRelationProperties,
-    deleteNodeProperties,
     deleteNode,
     deleteRelation
 };

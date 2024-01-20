@@ -33,12 +33,7 @@ export function credRouter() {
     router.patch('/relation', (req: Request, res: Response) => {
         credController.updateRelationProperties(req, res);
     });
-
-    // Delete credential node property
-    router.post('/deleteproperty', (req: Request, res: Response) => {
-        credController.deleteNodeProperties(req, res);
-    });
-
+    
     // Delete credential node
     router.post('/delete', (req: Request, res: Response) => {
         credController.deleteNode(req, res);

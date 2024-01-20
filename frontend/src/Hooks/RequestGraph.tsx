@@ -70,6 +70,36 @@ export default function RequestGraph() {
     }, [setLoading, getUsername, handleRequestResourceError, enqueueSnackbar]);
 
     /**
+     * Update a credential node
+     */
+    const updateCred = useCallback((cred : any) => {
+        setLoading(true);
+
+        axios.patch("/cred/add", cred, setHeaderToken())
+            .then((res) => {
+                enqueueSnackbar("Credential updated successfully!");
+                setLoading(false);
+                window.location.reload();
+            })
+            .catch(handleRequestResourceError);
+    }, [setLoading, handleRequestResourceError, enqueueSnackbar]);
+
+    /**
+     * Delete a credential node, warning: this will delete all relations to this node as well
+     */
+    const deleteCred = useCallback((cred : any) => {
+        setLoading(true);
+
+        axios.post("cred/delete", cred, setHeaderToken())
+            .then((res) => {
+                enqueueSnackbar("Credential deleted successfully!");
+                setLoading(false);
+                window.location.reload();
+            })
+            .catch(handleRequestResourceError);
+    }, [enqueueSnackbar, handleRequestResourceError, setLoading]);
+
+    /**
      * Create a new relation between 2 nodes
      */
 
@@ -77,6 +107,8 @@ export default function RequestGraph() {
         res,
         loadFullGraph,
         createCred,
+        updateCred,
+        deleteCred,
         error
     }
 }

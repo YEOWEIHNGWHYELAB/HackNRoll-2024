@@ -35,10 +35,12 @@ async function register(req: Request, res: Response, pool: Pool) {
         // Sign JWT token
         generateToken(newUser.username, res, true);
 
-        const session = n4jDriver.session();
+        const session = n4jDriver.session({ database: process.env.NEO4J_PW_MANAGER_DB });
 
         try {
-            await session.run(`CREATE (:RootInfo {email: "${email}", username: "${username}", created_by: "${username}"});`);
+            await session.run(
+                `CREATE (:RootInfo {email: "${email}", username: "${username}", created_by: "${username}"});`
+            );
         } catch (error) {
             if (error instanceof Error)
                 res.status(500).json({

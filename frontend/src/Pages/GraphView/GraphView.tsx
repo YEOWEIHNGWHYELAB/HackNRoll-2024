@@ -18,6 +18,7 @@ interface FormData {
 }
 
 const GraphView: React.FC = () => {
+  const [nodeFilter, setNodeFilter] = useState("");
   const [open, setOpen] = useState(false);
   const [isSelectingSrc, setIsSelectingSrc] = useState(false);
   const [isSelectingDest, setIsSelectingDest] = useState(false);
@@ -29,6 +30,9 @@ const GraphView: React.FC = () => {
     password_confirm: "",
   });
   const [newFieldName, setNewFieldName] = useState("");
+
+  const { res, loadFullGraph, createCred, updateCred, deleteCred } =
+    RequestGraph();
 
   const handleClickOpen = () => {
     setOpen(true);
@@ -68,6 +72,8 @@ const GraphView: React.FC = () => {
   const handleAddField = (fieldName: string) => {
     if (fieldName === "" || fieldName === undefined) {
       alert("Field name cannot be empty!");
+    } else if (fieldName === "created_by" || fieldName === "password_confirm") {
+      alert("Illegal field name!");
     } else {
       setFormData((prevData) => ({
         [fieldName]: "",
@@ -84,8 +90,15 @@ const GraphView: React.FC = () => {
     setFormData(updatedFormData);
   };
 
-  const handleSubmit = () => {
-    createCred((({ password_confirm, ...rest }) => rest)(formData));
+  const handleSubmit = (isCreate: boolean) => {
+    if (formData.created_by === undefined) {
+      createCred((({ password_confirm, ...rest }) => rest)(formData));
+    } else {
+      let updateData = (({ password_confirm, ...rest }) => rest)(formData);
+      updateData["elementId"] = activeItem?.id || "";
+      updateCred(updateData);
+    }
+
     handleClose();
     setActiveItem(undefined);
     setFormData({
@@ -96,7 +109,18 @@ const GraphView: React.FC = () => {
     });
   };
 
-  const { res, loadFullGraph, createCred } = RequestGraph();
+  const handleDelete = () => {
+    deleteCred({ elementId: activeItem?.id || "" });
+
+    handleClose();
+    setActiveItem(undefined);
+    setFormData({
+      label: "Google",
+      email: "",
+      password: "",
+      password_confirm: "",
+    });
+  };
 
   const [activeItem, setActiveItem] = useState<GraphSelection>();
   const [activeItemSrc, setActiveItemSrc] = useState<GraphSelection>();
@@ -106,11 +130,22 @@ const GraphView: React.FC = () => {
 
   useEffect(() => {
     if (activeItem !== undefined) {
-      setFormData({
-        label: activeItem.name,
-        ...activeItem.properties,
-      });
-      handleClickOpen();
+      if (activeItem.properties.password !== undefined) {
+        setFormData({
+          label: activeItem.name,
+          ...activeItem.properties,
+          password_confirm: "",
+        });
+      } else {
+        setFormData({
+          label: activeItem.name,
+          ...activeItem.properties,
+        });
+      }
+
+      if (!isSelectingDest && !isSelectingSrc) {
+        handleClickOpen();
+      }
     }
   }, [activeItem]);
 
@@ -170,6 +205,12 @@ const GraphView: React.FC = () => {
           Create New Relation
         </Button>
       </div>
+      <div>
+        <TextField
+          onChange={(e) => setNodeFilter(e.target.value.trim())}
+          label="Node Filter"
+        />
+      </div>
 
       <Dialog fullWidth open={open} onClose={handleClose}>
         <DialogTitle>Dynamic Credential Form</DialogTitle>
@@ -198,56 +239,86 @@ const GraphView: React.FC = () => {
             </Button>
           </div>
 
-          {Object.keys(formData).map((fieldName) => (
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                marginBottom: "8px",
-              }}
-            >
-              <TextField
-                key={fieldName}
-                label={fieldName}
-                type={
-                  fieldName === "password" || fieldName === "password_confirm"
-                    ? "password"
-                    : "text"
-                }
-                fullWidth
-                value={formData[fieldName] || ""}
-                onChange={(e) => handleChange(fieldName, e.target.value)}
-                margin="normal"
-              />
-
-              <Button
-                style={{ margin: "8px", background: "red" }}
-                variant="contained"
-                onClick={() => handleRemoveField(fieldName)}
-                disabled={fieldName === "label"}
+          {Object.keys(formData)
+            .filter((r) => r !== "created_by")
+            .map((fieldName) => (
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  marginBottom: "8px",
+                }}
               >
-                Remove
-              </Button>
-            </div>
-          ))}
+                <TextField
+                  key={fieldName}
+                  label={fieldName}
+                  type={
+                    fieldName === "password" || fieldName === "password_confirm"
+                      ? "password"
+                      : "text"
+                  }
+                  fullWidth
+                  value={formData[fieldName] || ""}
+                  onChange={(e) => handleChange(fieldName, e.target.value)}
+                  margin="normal"
+                  disabled={activeItem !== undefined && fieldName === "label"}
+                />
 
-          <Button
-            variant="contained"
-            color="primary"
-            onClick={() => {
-              if (
-                formData.password !== undefined &&
-                formData.password_confirm !== undefined &&
-                formData.password !== formData.password_confirm
-              ) {
-                alert("Passwords do not match!");
-              } else {
-                handleSubmit();
-              }
+                <Button
+                  style={{ margin: "8px", background: "red" }}
+                  variant="contained"
+                  onClick={() => handleRemoveField(fieldName)}
+                  disabled={fieldName === "label"}
+                >
+                  Remove
+                </Button>
+              </div>
+            ))}
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              marginBottom: "8px",
             }}
           >
-            Submit
-          </Button>
+            <Button
+              variant="contained"
+              color="primary"
+              onClick={() => {
+                if (
+                  formData.password !== undefined &&
+                  formData.password_confirm !== undefined &&
+                  formData.password !== formData.password_confirm
+                ) {
+                  alert("Passwords do not match!");
+                } else {
+                  handleSubmit(activeItem !== undefined);
+                }
+              }}
+              style={{ margin: "2px" }}
+            >
+              {activeItem !== undefined ? "Update" : "Submit"}
+            </Button>
+
+            <Button
+              variant="contained"
+              disabled={
+                activeItem === undefined || activeItem.name === "RootInfo"
+              }
+              onClick={() => {
+                handleDelete();
+              }}
+              style={{
+                margin: "2px",
+                background:
+                  activeItem === undefined || activeItem.name === "RootInfo"
+                    ? "transparent"
+                    : "red",
+              }}
+            >
+              Delete
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
 
@@ -306,21 +377,11 @@ const GraphView: React.FC = () => {
         </DialogContent>
       </Dialog>
 
-      {activeItem !== undefined ? (
-        <>
-          <div>
-            Selected: {activeItem.id} Type: {activeItem.type} Name:{" "}
-            {activeItem.name}
-          </div>
-          setFormData();
-
-          <div>{JSON.stringify(activeItem.properties)}</div>
-        </>
-      ) : (
-        ""
-      )}
-
-      <NetworkDiagram data={d3Graph} setActiveItem={setActiveItem} />
+      <NetworkDiagram
+        data={d3Graph}
+        nodeFilter={nodeFilter}
+        setActiveItem={setActiveItem}
+      />
     </div>
   );
 };

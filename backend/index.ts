@@ -9,6 +9,8 @@ import { authRouter } from './auth/routes';
 import { credRouter } from './cred/routes';
 import { initNeo4JDriver } from './cred';
 
+initNeo4JDriver();
+
 const pool = new Pool.Pool({
     user: process.env.PGDBUSERNAME,
     host: process.env.PGDBHOST,
@@ -25,8 +27,6 @@ const port = process.env.WEBPORT;
 
 app.use('/auth', authRouter(pool));
 app.use('/cred', credRouter());
-
-initNeo4JDriver();
 
 app.listen(port, () => {
     console.log(`Server is running on port ${port}`);

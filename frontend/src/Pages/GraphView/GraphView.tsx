@@ -8,8 +8,6 @@ import {
   IconButton,
   TextField,
 } from "@mui/material";
-import setHeaderToken from "../../Contexts/SetHeaderToken";
-import { Formik, Form, Field, FieldArray } from "formik";
 
 import { NetworkDiagram } from "./NetworkDiagram";
 import { GraphData, GraphSelection } from "./data";
@@ -43,11 +41,17 @@ const GraphView: React.FC = () => {
   const handleClose = () => {
     setOpen(false);
     setActiveItem(undefined);
+    setFormData({
+      label: "Google",
+      email: "",
+      password: "",
+      password_confirm: "",
+    });
   };
 
   const handleCloseRelation = () => {
     setOpenRelation(false);
-    //setActiveItem(undefined);
+    setActiveItem(undefined);
   };
 
   const handleChange = (fieldName: string, value: string) => {
@@ -81,7 +85,6 @@ const GraphView: React.FC = () => {
   };
 
   const handleSubmit = () => {
-    // console.log(formData);
     createCred((({ password_confirm, ...rest }) => rest)(formData));
     handleClose();
     setActiveItem(undefined);
@@ -101,7 +104,15 @@ const GraphView: React.FC = () => {
 
   const [d3Graph, setD3Graph] = useState<GraphData>({ nodes: [], links: [] });
 
-  console.log(activeItem);
+  useEffect(() => {
+    if (activeItem !== undefined) {
+      setFormData({
+        label: activeItem.name,
+        ...activeItem.properties,
+      });
+      handleClickOpen();
+    }
+  }, [activeItem]);
 
   useEffect(() => {
     if (activeItem !== undefined && activeItem.type === "Node") {
@@ -301,6 +312,8 @@ const GraphView: React.FC = () => {
             Selected: {activeItem.id} Type: {activeItem.type} Name:{" "}
             {activeItem.name}
           </div>
+          setFormData();
+
           <div>{JSON.stringify(activeItem.properties)}</div>
         </>
       ) : (

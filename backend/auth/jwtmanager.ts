@@ -1,5 +1,4 @@
-import express, { Request, Response } from 'express';
-import Pool from 'pg';
+import { Response } from 'express';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 

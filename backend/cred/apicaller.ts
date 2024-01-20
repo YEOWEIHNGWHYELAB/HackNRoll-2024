@@ -91,7 +91,7 @@ async function addRelation(req: Request, res: Response) {
 
     if (token !== '') {
         try {
-            jwt.verify(token, process.env.JWT_SECRET, {
+            const decoded = jwt.verify(token, process.env.JWT_SECRET, {
                 algorithms: ['HS256']
             });
 
@@ -109,7 +109,7 @@ async function addRelation(req: Request, res: Response) {
                 MATCH (destNode)
                 WHERE elementId(destNode) = '${destId}'
                 CREATE (srcNode)-[r:${relationType}]->(destNode)
-                SET r.relation_properties = $referenceProperties
+                SET r.relation_properties = $referenceProperties, r.created_by = "${(decoded as jwt.JwtPayload).username}"
                 `,
                     { referenceProperties }
                 );
@@ -356,28 +356,36 @@ async function getFullGraph(req: Request, res: Response) {
 
     if (token !== '') {
         try {
-            jwt.verify(token, process.env.JWT_SECRET, {
+            const decoded = jwt.verify(token, process.env.JWT_SECRET, {
                 algorithms: ['HS256']
             });
 
             const session = n4jDriver.session({ database: process.env.NEO4J_PW_MANAGER_DB });
 
             try {
-                const edgeResult = await session.run('MATCH ()-[r]->() RETURN r');
+                const edgeResult = await session.run(`
+                    MATCH ()-[r]->() 
+                    WHERE r.created_by = "${(decoded as jwt.JwtPayload).username}"
+                    RETURN r`
+                );
                 const n4jEdges = edgeResult.records.map((rec) => rec.get('r') as N4JEdge);
 
-                const nodeResults = await session.run('MATCH (n) RETURN (n)');
+                const nodeResults = await session.run(`
+                    MATCH (n)
+                    WHERE n.created_by = "${(decoded as jwt.JwtPayload).username}" 
+                    RETURN (n)`
+                );
                 const n4jNodes = nodeResults.records.map((rec) => rec.get('n') as N4JNode);
 
                 const d3Nodes = n4jNodes.reduce((acc: D3Node[], cur) => {
                     if (acc.some((n) => n.id === cur.elementId)) return acc;
-                    const displayName = (Object.values(cur.properties) ?? [''])[0];
+                    // const displayName = (Object.values(cur.properties) ?? [''])[0];
                     const category = cur.labels.join(', ');
                     return [
                         ...acc,
                         {
                             id: cur.elementId,
-                            name: `${displayName} (${category})`,
+                            name: `${category}`,
                             group: 'default',
                             properties: cur.properties
                         }

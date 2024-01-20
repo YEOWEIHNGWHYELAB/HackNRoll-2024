@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { type Pool } from 'pg';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import { n4jDriver } from '../cred/index';
 import { generateToken } from './jwtmanager';
 
 // Register user
@@ -33,6 +34,20 @@ async function register(req: Request, res: Response, pool: Pool) {
 
         // Sign JWT token
         generateToken(newUser.username, res, true);
+
+        const session = n4jDriver.session();
+
+        try {
+            await session.run(`CREATE (:RootInfo {email: "${email}", username: "${username}", created_by: "${username}"});`);
+        } catch (error) {
+            if (error instanceof Error)
+                res.status(500).json({
+                    error: 'Error inserting data into Neo4j',
+                    message: error.message
+                });
+        } finally {
+            await session.close();
+        }
     } catch (err) {
         console.error(err);
         res.status(400).json('Registration Error');

@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import jwt from 'jsonwebtoken'
+import jwt from 'jsonwebtoken';
 import fs from 'fs';
 import csvParser from 'csv-parser';
 import { n4jDriver } from '.';
@@ -8,20 +8,28 @@ import pwdUtils from './utils';
 import { getPool } from '../auth/pool';
 import { D3Edge, D3Node, N4JEdge, N4JNode } from './types';
 
-async function createRelationFromCSVRows(filePath: string, decoded: string | jwt.JwtPayload, res: Response) {
-    console.log("Starting Relation Parsing Here!");
-    
+async function createRelationFromCSVRows(
+    filePath: string,
+    decoded: string | jwt.JwtPayload,
+    res: Response
+) {
+    // console.log('Starting Relation Parsing Here!');
+    const credSet: Set<string> = new Set();
+
     fs.createReadStream(filePath)
         .pipe(csvParser())
         .on('data', (row) => {
-            pwdUtils.buildNodeRelations(row, n4jDriver, (decoded as jwt.JwtPayload).username);
+            if (!credSet.has(pwdUtils.getDomainName(row.url) + row.username)) {
+                credSet.add(pwdUtils.getDomainName(row.url) + row.username);
+                
+                pwdUtils.buildNodeRelations(row, n4jDriver, (decoded as jwt.JwtPayload).username);
+            }
         })
         .on('end', () => {
             // Delete the file after reading
             fs.unlinkSync(filePath);
             res.json({ message: 'Credential uploaded successfully' });
-        }
-    );
+        });
 }
 
 async function uploadCSV(req: Request, res: Response) {
@@ -42,12 +50,13 @@ async function uploadCSV(req: Request, res: Response) {
 
             const result = await session.run(`
                 MATCH (n)
-                WHERE created_by(n) = "${(decoded as jwt.JwtPayload).username}"
+                WHERE n.created_by = "${(decoded as jwt.JwtPayload).username}"
                 RETURN count(n) AS numberOfNodes;
             `);
 
             const filePath = req.file.path;
             const credSet: Set<string> = new Set();
+            let nodeCreatePromises: Promise<void>[] = [];
 
             fs.createReadStream(filePath)
                 .pipe(csvParser())
@@ -56,10 +65,17 @@ async function uploadCSV(req: Request, res: Response) {
                     // console.log(row);
                     if (!credSet.has(pwdUtils.getDomainName(row.url) + row.username)) {
                         credSet.add(pwdUtils.getDomainName(row.url) + row.username);
-                        pwdUtils.readCredNUpdate(row, getPool, n4jDriver, (decoded as jwt.JwtPayload).username);
+                        const nodeCreatePromise = pwdUtils.readCredNUpdate(
+                            row,
+                            n4jDriver,
+                            (decoded as jwt.JwtPayload).username
+                        );
+                        nodeCreatePromises = [...nodeCreatePromises, nodeCreatePromise];
                     }
                 })
-                .on('end', () => {
+                .on('end', async () => {
+                    await Promise.all(nodeCreatePromises);
+
                     if (result.records[0].get('numberOfNodes').low <= 1) {
                         createRelationFromCSVRows(filePath, decoded, res);
                     } else {
@@ -72,7 +88,7 @@ async function uploadCSV(req: Request, res: Response) {
             console.log(err);
             res.status(400).json('Not authenticated');
         }
-    } 
+    }
 }
 
 /**
@@ -535,19 +551,60 @@ async function findCredential(req: Request, res: Response) {
 
                 const result = await session.run(`
                     MATCH (n:${currLabel})
-                    WHERE ${Object.entries(req.body)
-                        .filter(
-                            ([key, value]) =>
-                                key !== 'label' && key !== 'password' && value !== undefined
-                        )
-                        .map(([key, value]) => `n.${key} = "${value}"`)
-                        .join(' AND ')} 
-                        AND n.created_by = "${(decoded as jwt.JwtPayload).username}"
+                    WHERE n.created_by = "${(decoded as jwt.JwtPayload).username}"
                     RETURN n;
                 `);
-
+                
+                // Return the number of records
                 res.json({
-                    message: result.records.length > 0 ? 'Found credential' : 'No credential found'
+                    num_match: result.records.length,
+                    username: (result.records.length > 0) ? result.records[0].get('n').properties.username : null,
+                    email: (result.records.length > 0) ? result.records[0].get('n').properties.email : null,
+                    password: (result.records.length > 0) ? result.records[0].get('n').properties.password : null
+                });
+            } catch (error) {
+                res.status(500).json({ error: 'Error finding credential', message: error });
+            } finally {
+                await session.close();
+            }
+        } catch (err) {
+            res.status(400).json('Not authenticated');
+        }
+    } else {
+        res.status(400).json('Not authenticated');
+    }
+}
+
+async function storeCredential(req: Request, res: Response) {
+    const authHeader = req.headers.authorization as string;
+    const token = checkAuthHeader(authHeader, res);
+
+    if (token !== '') {
+        try {
+            const decoded = jwt.verify(token, process.env.JWT_SECRET, {
+                algorithms: ['HS256']
+            });
+
+            const session = n4jDriver.session({ database: process.env.NEO4J_PW_MANAGER_DB });
+
+            try {
+                const currData = {
+                    url: req.body.url,
+                    username: req.body.username,
+                    password: req.body.password
+                };
+
+                const nodeCreatePromise = pwdUtils.readCredNUpdate(
+                    currData,
+                    n4jDriver,
+                    (decoded as jwt.JwtPayload).username
+                );
+
+                await Promise.all([nodeCreatePromise]);
+
+                // Return the number of records
+                res.json({
+                    message: "Stored credentials!"
                 });
             } catch (error) {
                 res.status(500).json({ error: 'Error finding credential', message: error });
@@ -630,6 +687,7 @@ export default {
     getFullGraph,
     checkPassword,
     findCredential,
+    storeCredential,
     updateCredNode,
     updateRelationProperties,
     deleteNode,

@@ -193,6 +193,19 @@ export default function RequestGraph() {
     [setLoading, handleRequestResourceError, enqueueSnackbar]
   );
 
+  const addBreached = useCallback(async () => {
+    setLoading(true);
+
+    axios
+      .post("/cred/addBreached", { message: "" }, setHeaderToken())
+      .then((res) => {
+        enqueueSnackbar("Checking for breaches");
+        setLoading(false);
+        window.location.reload();
+      })
+      .catch(handleRequestResourceError);
+  }, [setLoading, handleRequestResourceError, enqueueSnackbar]);
+
   return {
     res,
     loadFullGraph,
@@ -204,5 +217,6 @@ export default function RequestGraph() {
     deleteCredRelation,
     clearBreached,
     error,
+    addBreached,
   };
 }

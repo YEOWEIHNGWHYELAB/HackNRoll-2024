@@ -49,6 +49,7 @@ const GraphView: React.FC = () => {
     createCredRelation,
     deleteCredRelation,
     clearBreached,
+    addBreached,
   } = RequestGraph();
 
   const handleCheckboxChange = (key: string) => {
@@ -170,6 +171,10 @@ const GraphView: React.FC = () => {
     });
   };
 
+  const handleBreachDetection = () => {
+    addBreached();
+  };
+
   const [activeItem, setActiveItem] = useState<GraphSelection>();
   const [activeItemSrc, setActiveItemSrc] = useState<GraphSelection>();
   const [activeItemDest, setActiveItemDest] = useState<GraphSelection>();
@@ -198,7 +203,11 @@ const GraphView: React.FC = () => {
       if (activeItem.type === "Relationship") {
         let refPropStr = "";
 
-        for (let i = 0; i < activeItem.properties.relation_properties.length; i++) {
+        for (
+          let i = 0;
+          i < activeItem.properties.relation_properties.length;
+          i++
+        ) {
           refPropStr += activeItem.properties.relation_properties[i] + ", ";
         }
 
@@ -286,6 +295,14 @@ const GraphView: React.FC = () => {
           }}
         >
           Delete Relation
+        </Button>
+
+        <Button
+          variant="outlined"
+          onClick={handleBreachDetection}
+          style={{ margin: "2px" }}
+        >
+          Check For Breaches
         </Button>
       </div>
       <div>

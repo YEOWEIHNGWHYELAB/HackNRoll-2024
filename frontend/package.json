@@ -17,6 +17,7 @@
     "@types/react": "^18.2.47",
     "@types/react-dom": "^18.2.18",
     "axios": "^1.6.5",
+    "clipboard-copy": "^4.0.1",
     "d3": "^7.8.5",
     "d3-drag": "^3.0.0",
     "d3-force": "^3.0.0",

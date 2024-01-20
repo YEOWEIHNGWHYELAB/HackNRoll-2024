@@ -1,0 +1,15 @@
+{
+    "compilerOptions": {
+        "module": "NodeNext",
+        "target": "ES2020",
+        "moduleResolution": "NodeNext",
+        "declaration": true,
+        "outDir": "./dist",
+        "esModuleInterop": true,
+        "emitDecoratorMetadata": true,
+        "experimentalDecorators": true,
+        "strict": true,
+        "incremental": true
+    },
+    "exclude": ["node_modules"]
+}

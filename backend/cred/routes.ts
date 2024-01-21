@@ -5,7 +5,7 @@ import credController from './apicaller';
 const router = express.Router();
 const tempstorage = multer({ dest: '../tempstorage/' });
 
-export function credRouter() {
+export function credRouter(pmClient: any) {
     // Create credential node
     router.post('/add', (req: Request, res: Response) => {
         credController.addCred(req, res);
@@ -71,7 +71,7 @@ export function credRouter() {
     });
 
     router.post('/addBreached', (req: Request, res: Response) => {
-        credController.addBreached(req, res);
+        credController.addBreached(req, res, pmClient);
     });
 
     return router;

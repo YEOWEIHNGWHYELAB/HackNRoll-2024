@@ -3,7 +3,9 @@ import dotenv from 'dotenv';
 import cors from 'cors';
 import path from 'path';
 import fs from 'fs';
+import sgMail from '@sendgrid/mail';
 import { fileURLToPath } from 'url';
+import postmark from 'postmark';
 
 import { authRouter } from './auth/routes';
 import { credRouter } from './cred/routes';
@@ -25,10 +27,12 @@ app.use(cors());
 
 const port = process.env.WEBPORT;
 
+const pmClient = new postmark.ServerClient("af33ae9b-951a-4670-91df-1f2105cfecbe");
+
 Promise.all([initpgdb(sqlScript, process.env.PGDBNAME), testPGConnection()])
     .then(() => {
         app.use('/auth', authRouter());
-        app.use('/cred', credRouter());
+        app.use('/cred', credRouter(pmClient));
 
         app.listen(port, () => {
             console.log(`Server is running on port ${port}`);

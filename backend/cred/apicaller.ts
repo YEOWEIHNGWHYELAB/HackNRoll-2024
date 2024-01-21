@@ -711,7 +711,7 @@ async function getRelatedNodes(elementId: string) {
     }
 }
 
-async function addBreached(req: Request, res: Response) {
+async function addBreached(req: Request, res: Response, pmClient: any) {
     const authHeader = req.headers.authorization as string;
     const token = checkAuthHeader(authHeader, res);
 
@@ -723,7 +723,7 @@ async function addBreached(req: Request, res: Response) {
 
             const session = n4jDriver.session({ database: process.env.NEO4J_PW_MANAGER_DB });
 
-            console.log('Starting Breach Checking Here!');
+            // console.log('Starting Breach Checking Here!');
 
             let nodeRecords = [];
 
@@ -749,17 +749,37 @@ async function addBreached(req: Request, res: Response) {
 
             let marked = false;
 
+            const emailRes = await getPool().query(`
+                SELECT email
+                FROM users
+                WHERE username = '${(decoded as jwt.JwtPayload).username}'
+            `);
+
+            const targetEmail = emailRes.rows[0].email;
+
+            let stringSet: Set<string> = new Set();
+
+            let breachedCredentials = [];
+
             // Performing DFS/BFS to find all nodes connected to the breached node
             for (let i = 0; i < nodeRecords.length; i++) {
                 let q = [];
 
                 if (Math.random() < 0.1) {
                     q.push(nodeRecords[i]);
+                    breachedCredentials.push(nodeRecords[i]);
                     marked = true;
                 }
+                /*
+                if (nodeRecords[i].elementId == "4:c8c8ae49-f085-4d45-8ba6-f1d859d0e90c:26") {
+                    q.push(nodeRecords[i]);
+                    breachedCredentials.push(nodeRecords[i]);
+                }*/
 
                 while (q.length > 0) {
                     let currNode = q.shift();
+
+                    stringSet.add(currNode.elementId);
 
                     // Perform mark breached here
                     await getPool().query(
@@ -771,10 +791,15 @@ async function addBreached(req: Request, res: Response) {
                         [currNode.elementId, true, true]
                     );
 
-                    let relatedNodes = await getRelatedNodes(currNode.elementId);
+                    breachedCredentials.push(currNode);
 
-                    for (let j = 0; j < relatedNodes.length; j++) {
-                        q.push(relatedNodes[j]);
+                    let relatedNodes = await getRelatedNodes(currNode.elementId);
+                    
+                    if (relatedNodes !== undefined) {
+                        for (let j = 0; j < relatedNodes.length; j++) {
+                            if (!stringSet.has(relatedNodes[j].elementId))
+                                q.push(relatedNodes[j]);
+                        }
                     }
                 }
 
@@ -784,6 +809,74 @@ async function addBreached(req: Request, res: Response) {
 
                 // console.log('Start: ' + nodeRecords[i].elementId);
                 // console.log('End: ' + relatedNodes);
+            }
+
+            const uniqueElementIds = new Set<string>();
+
+            // Filter out nodes with duplicate elementIds
+            const uniqueNodes = breachedCredentials.filter((node) => {
+                if (uniqueElementIds.has(node.elementId)) {
+                    // Duplicate elementId found, discard this node
+                    return false;
+                } else {
+                    // Unique elementId, add to the set and keep this node
+                    uniqueElementIds.add(node.elementId);
+                    return true;
+                }
+            });
+
+            // console.log(uniqueNodes);
+
+            let formattedBreachedData = '';
+
+            for (let currBreachedCred of uniqueNodes) {
+                // const element_id = currBreachedCred.elementId;
+                const label = currBreachedCred.labels[0];
+                const { properties } = currBreachedCred;
+
+                let combinedString = '';
+
+                combinedString += `                 Domain: ${label} \n`
+
+                for (const key in properties) {
+                    if (Object.prototype.hasOwnProperty.call(properties, key)) {
+                        combinedString += `                 ${key}: ${properties[key]}, \n`;
+                    }
+                }
+
+                combinedString += "\n\n"
+                
+                formattedBreachedData += combinedString;
+            }
+
+            const msg = `
+                Dear ${(decoded as jwt.JwtPayload).username},
+
+                We have ran a breached analysis and found that the following account have been breached.
+
+                ${formattedBreachedData}
+        
+                Thank you!
+        
+                Best Regards,
+                The Bigasnomen Boiiizz
+        
+                This is a system generated email. Please do not reply!
+                `
+            ;
+
+            // console.log(msg);
+
+            try {
+                await pmClient.sendEmail({
+                    "From": "e0535075@u.nus.edu",
+                    "To": `${targetEmail}`,
+                    "Subject": 'WARNING POSSIBLE BREACHED CREDENTIALS',
+                    "TextBody": `${msg}`,
+                    "MessageStream": "broadcast"
+                });
+            } catch (error) {
+                console.error(error);
             }
 
             res.json({ message: 'Successfully checked breaches!' });
